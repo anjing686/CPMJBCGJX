@@ -129,32 +129,32 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     while True:
         banner(console)
-        acc_email = prompt_valid_value("[bold][?] Account Email[/bold]", "Email", password=False)
-        acc_password = prompt_valid_value("[bold][?] Account Password[/bold]", "Password", password=False)
-        acc_access_key = prompt_valid_value("[bold][?] Access Key[/bold]", "Access Key", password=False)
+        acc_email = prompt_valid_value("[bold][?] 这里输入你的游戏账号按回车[/bold]", "Email", password=False)
+        acc_password = prompt_valid_value("[bold][?] 这里输入你的游戏密码按回车[/bold]", "Password", password=False)
+        acc_access_key = prompt_valid_value("[bold][?] 这里输入你的秘钥按回车[/bold]", "Access Key", password=False)
         console.print("[bold yellow][%] Trying to Login[/bold yellow]: ", end=None)
         cpm = Bubcyz(acc_access_key)
         login_response = cpm.login(acc_email, acc_password)
         if login_response != 0:
             if login_response == 100:
-                console.print("[bold red]ACCOUNT NOT FOUND (✘)[/bold red]")
+                console.print("[bold red]检查账号有没有问题屌毛 (✘)[/bold red]")
                 sleep(2)
                 continue
             elif login_response == 101:
-                console.print("[bold red]WRONG PASSWORD (✘)[/bold red]")
+                console.print("[bold red]检查你的密码有没有问题啊屌毛 (✘)[/bold red]")
                 sleep(2)
                 continue
             elif login_response == 103:
-                console.print("[bold red]INVALID ACCESS KEY (✘)[/bold red]")
+                console.print("[bold red]检查你的秘钥有没有问题啊屌毛 (✘)[/bold red]")
                 sleep(2)
                 continue
             else:
-                console.print("[bold red]TRY AGAIN[/bold red]")
+                console.print("[bold red]重试一下[/bold red]")
                 console.print("[bold yellow] '! Note: make sure you filled out the fields ![/bold yellow]")
                 sleep(2)
                 continue
         else:
-            console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
+            console.print("[bold green]芜湖小飞棍来咯(✔)[/bold green]")
             sleep(1)
         while True:
             banner(console)
@@ -212,7 +212,7 @@ if __name__ == "__main__":
             if service == 0: # Exit
                 console.print("[bold white] 感谢使用 有任何问题快手联系老季[/bold white]")
             elif service == 1: # Increase Money
-                console.print("[bold yellow][bold white][?][/bold white] Insert how much money do you want[/bold yellow]")
+                console.print("[bold yellow][bold white][?][/bold white] 你想要多少绿钞说个数老季帮你实现！[/bold yellow]")
                 amount = IntPrompt.ask("[?] Amount")
                 console.print("[%] Saving your data: ", end=None)
                 if amount > 0 and amount <= 500000000:
@@ -233,7 +233,7 @@ if __name__ == "__main__":
                     sleep(2)
                     continue
             elif service == 2:  # Increase Coins
-                console.print("[bold yellow][bold white][?][/bold white] Insert how much coins do you want[/bold yellow]")
+                console.print("[bold yellow][bold white][?][/bold white] 说个数你要多少金币?[/bold yellow]")
                 amount = IntPrompt.ask("[?] Amount")
                 print("[ % ] Saving your data: ", end="")
                 if amount > 0 and amount <= 500000:
