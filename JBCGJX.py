@@ -1,102 +1,162 @@
  #!/usr/bin/python
-
+#!/usr/bin/python
 import random
 import urllib.parse
 import requests
 from time import sleep
 import os, signal, sys
+from rich.table import Table
 from rich.console import Console
 from rich.prompt import Prompt, IntPrompt
 from rich.text import Text
 from rich.style import Style
-import pystyle
-from pystyle import Colors, Colorate
+from cylo import Bubcyz  # 确保 cylo.py 存在
 
-from cylo import Bubcyz
+# —— 鲜亮彩虹渐变色带 ——
+BRIGHT_RAINBOW = [  # <-- 顶格，无缩进
+    "#FF4500",  # 橙红
+    "#FF8C00",  # 深橙
+    "#FFD700",  # 金黄
+    "#ADFF2F",  # 黄绿
+    "#00FA9A",  # 中春绿
+    "#00CED1",  # 暗绿松石
+    "#1E90FF",  # 道奇蓝
+    "#8A2BE2",  # 蓝紫
+    "#EE82EE",  # 紫罗兰
+]
 
-def signal_handler(sig, frame):
-    print("\n Bye Bye...")
+# —— 新增输入提示样式和渐变颜色 ——
+INPUT_PROMPT_STYLE = Style(color="#00CED1", bold=True, italic=True)  # <-- 顶格
+GRADIENT_COLORS = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEEAD"]  # <-- 顶格
+
+# 捕捉 Ctrl+C
+def signal_handler(sig, frame):  # <-- 顶格，函数定义无缩进
+    print("\nBye Bye...")
     sys.exit(0)
 
-def gradient_text(text, colors):
+# 水平亮彩虹渐变函数
+def gradient_text(text: str, colors: list[str]) -> Text:
     lines = text.splitlines()
-    height = len(lines)
-    width = max(len(line) for line in lines)
-    colorful_text = Text()
-    for y, line in enumerate(lines):
-        for x, char in enumerate(line):
-            if char != ' ':
-                color_index = int(((x / (width - 1 if width > 1 else 1)) + (y / (height - 1 if height > 1 else 1))) * 0.5 * (len(colors) - 1))
-                color_index = min(max(color_index, 0), len(colors) - 1)  # Ensure the index is within bounds
-                style = Style(color=colors[color_index])
-                colorful_text.append(char, style=style)
+    width = max((len(line) for line in lines), default=0)
+    segs = max(len(colors) - 1, 1)
+    out = Text()
+    for line in lines:
+        for x, ch in enumerate(line):
+            if ch == " ":
+                out.append(" ")
             else:
-                colorful_text.append(char)
-        colorful_text.append("\n")
-    return colorful_text
+                frac = x / max(width - 1, 1)
+                pos = frac * segs
+                i = int(pos)
+                t = pos - i
+                c1 = colors[i]
+                c2 = colors[min(i + 1, segs)]
+                # 修复颜色转换部分
+                r1 = int(c1[1:3], 16)
+                g1 = int(c1[3:5], 16)
+                b1 = int(c1[5:7], 16)
+                r2 = int(c2[1:3], 16)
+                g2 = int(c2[3:5], 16)
+                b2 = int(c2[5:7], 16)
+                r = int(r1 + (r2 - r1) * t)
+                g = int(g1 + (g2 - g1) * t)
+                b = int(b1 + (b2 - b1) * t)
+                out.append(ch, Style(color=f"#{r:02x}{g:02x}{b:02x}"))
+        out.append("\n")
+    return out
 
+# 简单小动物 ASCII 艺术
+ascii_art = r"""
+             (\_/)
+             ( •_•)
+             />🍪
+"""
 
-def banner(console):
-    os.system('cls' if os.name == 'nt' else 'clear')
-    brand_name = "Tool version is 0.3"
-    
-    text = Text(brand_name, style="bold black")
-    
-    console.print(text)
-    console.print("[bold white] ============================================================[/bold white]")
-    console.print("[bold yellow]         欢迎使用CPM季伯常的工具箱[/bold yellow]")
-    console.print("[bold red]         快手搜索CPM季伯常有优惠[/bold red]")
-    console.print("[bold white] ============================================================[/bold white]")  
-    
-def load_player_data(cpm):
+ # 登录欢迎界面
+def banner(console: Console):
+     os.system('cls' if os.name == 'nt' else 'clear')
+     # 渐变小动物（移除居中）
+     console.print(gradient_text(ascii_art, BRIGHT_RAINBOW))  # 移除 justify="center"
+     # 分隔符 & 欢迎文本（移除居中）
+     sep = gradient_text("★☆" * 17, BRIGHT_RAINBOW)
+     console.print(sep)  # 移除 justify="center"
+     console.print(gradient_text("     欢迎来到季伯常的工具箱      ", BRIGHT_RAINBOW))  # 前后各6空格
+     console.print(gradient_text("     快手搜索季伯常获取秘钥      ", BRIGHT_RAINBOW))
+     console.print(sep)  # 移除居中   
+def load_player_data(cpm, console: Console):
     response = cpm.get_player_data()
     
     if response.get('ok'):
         data = response.get('data')
-
-        if all(key in data for key in ['floats', 'localID', 'money', 'coin', "integers"]):
+        required_keys = ['floats', 'localID', 'money', 'coin', 'integers']
+        if all(key in data for key in required_keys):
+            # 标题：粉色渐变 + 靠左
+            title = gradient_text("ᴘʟᴀʏᴇʀ ᴅᴇᴛᴀɪʟꜱ", ["#FF69B4", "#FF1493"])
+            console.print(f"\n[bold]{title}[/bold]")  # 移除居中
             
-            console.print("[bold][red]========[/red][ ᴘʟᴀʏᴇʀ ᴅᴇᴛᴀɪʟꜱ ][red]========[/red][/bold]")
+            # 处理成就点数
+            integers_value = data.get('integers', 0)
+            formatted_integers = f"{sum(integers_value):,}" if isinstance(integers_value, list) else f"{integers_value:,}"
             
-            console.print(f"[bold white]   >> 游戏昵称         : {data.get('Name', 'UNDEFINED')}[/bold white]")
-            console.print(f"[bold white]   >> 游戏代码         : {data.get('localID', 'UNDEFINED')}[/bold white]")
-            console.print(f"[bold white]   >> 游戏绿钞         : {data.get('money', 'UNDEFINED')}[/bold white]")
-            console.print(f"[bold white]   >> 游戏金币         : {data.get('coin', 'UNDEFINED')}[/bold white]")
-            friends_count = len(data.get("FriendsID", []))
-            console.print(f"[bold white]   >> 好友数量         : {friends_count}[/bold white]")
-            # Count Cars (Checking if it's nested)
-            car_data = data.get("carIDnStatus", {}).get("carGeneratedIDs", [])
-            # Remove duplicates by converting the list to a set
-            unique_car_data = set(car_data)
-            car_count = len(unique_car_data)
-            console.print(f"[bold white]   >> 车辆数量   : {car_count}[/bold white]")
-       
+            # 数据项（靠左对齐）
+            items = [
+                ("游戏昵称", data.get('Name', 'UNDEFINED')),
+                ("玩家代码", data.get('localID', 'N/A')),
+                ("绿钞余额", f"{data.get('money', 0):,}"),
+                ("金币余额", f"{data.get('coin', 0):,}"),
+                
+            ]
+            
+            # 创建表格（强制左对齐）
+            table = Table(show_header=False, box=None, show_edge=False)
+            table.add_column(style=Style(color="#FF69B4"))  # 粉色字段名
+            table.add_column(style=Style(color="white"))     # 白色数值
+            
+            for label, value in items:
+                # 字段名添加冒号 + 粉色渐变
+                colored_label = gradient_text(f"{label} :", ["#FF69B4", "#FF1493"])
+                table.add_row(colored_label, f"[bold]{value}[/bold]")
+            
+            console.print(table)  # 不居中
+            
+            # 分隔线（粉色渐变 + 左对齐）
+            sep = gradient_text("─" * 40, ["#FF69B4", "#FF1493"])
+            console.print(sep)
         else:
-            console.print("[bold red] '! ERROR: new accounts must be signed-in to the game at least once (✘)[/bold red]")
+            console.print("[bold red]! ERROR: 新账号需至少登录游戏一次 (✘)[/bold red]")
             exit(1)
     else:
-        console.print("[bold red] '! ERROR: seems like your login is not properly set (✘)[/bold red]")
+        console.print("[bold red]! ERROR: 登录凭证无效 (✘)[/bold red]")
         exit(1)
-     
 
 def load_key_data(cpm):
-
+    """加载并展示CPM密钥数据"""
     data = cpm.get_key_data()
     
-    console.print("[bold][red]========[/red][ CPM季伯常专属工具箱 ][red]========[/red][/bold]")
+    # 标题：粉色渐变 + 左对齐
+    title = gradient_text("CPM季伯常专属工具箱", ["#FF69B4", "#FF1493"])
+    console.print(f"\n[bold]{title}[/bold]")  # 不居中
     
-    console.print(f"[bold white]   >> 你的秘钥    [/bold white]: [black]{data.get('access_key')}[/black]")
+    # 敏感信息部分
+    items = [
+        ("你的秘钥", "[dark_gray]********[/dark_gray]"),
+        ("TG ID", data.get('telegram_id', 'N/A')),
+        ("秘钥余额", 'Unlimited' if data.get('is_unlimited') else data.get('coins', 'N/A'))
+    ]
     
-    console.print(f"[bold white]   >> TG  ID                  : {data.get('telegram_id')}[/bold white]")
-    
-    console.print(f"[bold white]   >> 权限类别                 : {data.get('coins') if not data.get('is_unlimited') else 'Unlimited'}[/bold white]")
-    
+    # 统一粉色渐变样式
+    for label, value in items:
+        # 字段名（含 >> 符号）应用渐变
+        colored_label = gradient_text(f">> {label.ljust(4)}", ["#FF69B4", "#FF1493"])  # 调整对齐长度
+        console.print(f"{colored_label} : [bold white]{value}[/bold white]")
+
 
 def prompt_valid_value(content, tag, password=False):
+    """带验证的输入提示"""
     while True:
         value = Prompt.ask(content, password=password)
         if not value or value.isspace():
-            console.print(f"[bold red]{tag} cannot be empty or just spaces. Please try again (✘)[/bold red]")
+            console.print(f"[bold red]{tag} 不能为空或纯空格，请重新输入 (✘)[/bold red]")
         else:
             return value
             
@@ -104,8 +164,8 @@ def load_client_details():
     response = requests.get("http://ip-api.com/json")
     data = response.json()
     console.print("[bold red] =============[bold white][ 𝙇𝙊𝘾𝘼𝙏𝙄𝙊𝙉 ][/bold white]=============[/bold red]")
-    console.print(f"[bold white]    >> Country    : {data.get('country')} {data.get('zip')}[/bold white]")
-    console.print("[bold red] ===============[bold white][ ＭＥＮＵ ][/bold white]===========[/bold red]")
+    console.print(f"[bold white]>>登录地址        : {data.get('country')} {data.get('zip')}[/bold white]")
+    console.print("[bold red] =============[bold white][ ＭＥＮＵ ][/bold white]==============[/bold red]")
 
 def interpolate_color(start_color, end_color, fraction):
     start_rgb = tuple(int(start_color[i:i+2], 16) for i in (1, 3, 5))
@@ -129,102 +189,123 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     while True:
         banner(console)
-        acc_email = prompt_valid_value("[bold][?] 这里输入你的游戏账号按回车[/bold]", "Email", password=False)
-        acc_password = prompt_valid_value("[bold][?] 这里输入你的游戏密码按回车[/bold]", "Password", password=False)
-        acc_access_key = prompt_valid_value("[bold][?] 这里输入你的秘钥按回车[/bold]", "Access Key", password=False)
+        acc_email = prompt_valid_value("[bold][?] Account Email[/bold]", "Email", password=False)
+        acc_password = prompt_valid_value("[bold][?] Account Password[/bold]", "Password", password=False)
+        acc_access_key = prompt_valid_value("[bold][?] Access Key[/bold]", "Access Key", password=False)
         console.print("[bold yellow][%] Trying to Login[/bold yellow]: ", end=None)
         cpm = Bubcyz(acc_access_key)
         login_response = cpm.login(acc_email, acc_password)
         if login_response != 0:
             if login_response == 100:
-                console.print("[bold red]检查账号有没有问题屌毛 (✘)[/bold red]")
+                console.print("[bold red]ACCOUNT NOT FOUND (✘)[/bold red]")
                 sleep(2)
                 continue
             elif login_response == 101:
-                console.print("[bold red]检查你的密码有没有问题啊屌毛 (✘)[/bold red]")
+                console.print("[bold red]WRONG PASSWORD (✘)[/bold red]")
                 sleep(2)
                 continue
             elif login_response == 103:
-                console.print("[bold red]检查你的秘钥有没有问题啊屌毛 (✘)[/bold red]")
+                console.print("[bold red]INVALID ACCESS KEY (✘)[/bold red]")
                 sleep(2)
                 continue
             else:
-                console.print("[bold red]重试一下[/bold red]")
+                console.print("[bold red]TRY AGAIN[/bold red]")
                 console.print("[bold yellow] '! Note: make sure you filled out the fields ![/bold yellow]")
                 sleep(2)
                 continue
         else:
-            console.print("[bold green]芜湖小飞棍来咯(✔)[/bold green]")
+            console.print("[bold green]芜湖小飞棍起飞咯 (✔)[/bold green]")
             sleep(1)
         while True:
             banner(console)
-            load_player_data(cpm)
+            load_player_data(cpm, console)
             load_key_data(cpm)
             load_client_details()
-            choices = ["00", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39",]
-            console.print("[bold yellow][bold white](01)[/bold white]: 选择此命令可得到绿钞        [bold red]1.5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](02)[/bold white]: 选择此命令可得到C币         [bold red]1.5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](03)[/bold white]: 皇冠满成就                 [bold red]8K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](04)[/bold white]: 更改ID                    [bold red]4.5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](05)[/bold white]: 更改长昵称                 [bold red]100[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](06)[/bold white]: 更改昵称 彩虹              [bold red]100[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](07)[/bold white]: 车牌号修改                 [bold red]2K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](08)[/bold white]: 删除账户                   [bold red]Free[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](09)[/bold white]: 注册账户                   [bold red]Free[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](10)[/bold white]: 删除好友                   [bold red]500[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](11)[/bold white]: 解锁付费车辆               [bold red]5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](12)[/bold white]: 解锁全部车辆【慎用 小心涂装  [bold red]6K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](13)[/bold white]: 解锁车辆警笛                [bold red]3.5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](14)[/bold white]: 解锁W16引擎                [bold red]4K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](15)[/bold white]: 解锁全部喇叭               [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](16)[/bold white]: 禁用车辆损坏               [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](17)[/bold white]: 无限燃料                   [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](18)[/bold white]: 解锁房屋3                  [bold red]4K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](19)[/bold white]: 解锁烟雾特效               [bold red]4K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](20)[/bold white]: 解锁轮毂                   [bold red]4K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](21)[/bold white]: 解锁动画                   [bold red]2K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](22)[/bold white]: 解锁男性所有衣服            [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](23)[/bold white]: 解锁女性所有衣服            [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](24)[/bold white]: 修改比赛胜利次数            [bold red]1K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](25)[/bold white]: 修改比赛失败次数            [bold red]1K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](26)[/bold white]: 克隆账户                   [bold red]7K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](27)[/bold white]: 自定义马力                 [bold red]2.5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](28)[/bold white]: 自定义转向角度              [bold red]1.5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](29)[/bold white]: 自定义轮胎烧胎效果           [bold red]1.5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](30)[/bold white]: 自定义车辆里程数            [bold red]1.5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](31)[/bold white]: 自定义刹车性能              [bold red]2K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](32)[/bold white]: 移除后保险杠                [bold red]2K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](33)[/bold white]: 移除前保险杠                [bold red]2K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](34)[/bold white]: 强改账户密码                [bold red]2K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](35)[/bold white]: 修改账户邮箱                [bold red]2K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](36)[/bold white]: 自定义尾翼                  [bold red]10K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](37)[/bold white]: 自定义车身套件              [bold red]10K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](38)[/bold white]: 解锁高级轮毂                [bold red]4.5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](39)[/bold white]: 解锁丰田皇冠（车辆）         [bold red]2K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](0) [/bold white]: 退出工具 [/bold yellow]")
+                        # ========== 菜单部分 ==========
+            MENU_GRADIENT = [
+                "#9370DB", "#8A2BE2", "#9400D3", 
+                "#9932CC", "#BA55D3"
+            ]
+
+            # 创建两列表格布局
+            menu_table = Table.grid(padding=(0, 1))
+            menu_table.add_column(justify="left", width=20)
+            menu_table.add_column(justify="right", width=15)
+
+            # 修正后的功能列表（删除无效序号）
+            choices = [
+            "0","01","02","03","04","05","06","07","08","09",
+            "10","11","12","13","14","15","16","17","18","19",
+            "20","21","22","23","24","25","26","27","28","29"
+        ]
+
+            menu_items = [
+        ("01", "获得绿钞", "5K"), 
+        ("02", "获得C币", "10K"),
+        ("03", "皇冠满成就", "30K"),  
+        ("04", "更改ID", "30K"),
+        ("05", "修改长昵称", "5K"), 
+        ("06", "车牌修改", "5K"),
+        ("07", "删除好友", "5K"),
+        ("08", "解锁付费车", "5K"), 
+        ("09", "全车辆解锁", "10K"),
+        ("10", "车辆警笛", "5K"), 
+        ("11", "W16引擎", "5K"),
+        ("12", "全喇叭解锁", "5K"), 
+        ("13", "禁用发动机损坏", "5K"),
+        ("14", "无限燃料", "5K"),  
+        ("15", "解锁房屋3", "5K"),
+        ("16", "烟雾特效", "5K"),  
+        ("17", "动画解锁", "5K"),  
+        ("18", "男装全解锁", "5K"),
+        ("19", "女装全解锁", "5K"),
+        ("20", "修改胜场数", "5K"),
+        ("21", "修改败场数", "5K"),
+        ("22", "克隆账户", "50K"),
+        ("23", "自定义马力", "5K"),
+        ("24", "后保险杠", "5K"),
+        ("25", "前保险杠", "5K"),
+        ("26", "强改密码", "10K"),
+        ("27", "强改邮箱", "10K"),
+        ("28", "自定义尾翼", "5K"),
+        ("29", "车身套件", "5K"),
+        ("0", "退出系统", "")
+]
+
+            # 填充菜单项
+            for num, desc, price in menu_items:
+                colored_item = gradient_text(f"({num}) {desc}", MENU_GRADIENT)
+                colored_price = gradient_text(price, MENU_GRADIENT) if price else ""
+                menu_table.add_row(colored_item, colored_price)
+
+            # 打印菜单
+            console.print(gradient_text("━"*11 + "【季伯常 工具箱】" + "━"*11, MENU_GRADIENT))
+            console.print(menu_table)
+            console.print(gradient_text("━"*11 + "【功能区 选择区】" + "━"*11, MENU_GRADIENT))
+
+            service = IntPrompt.ask(
+                gradient_text("请输入功能编号以后按回车 ▶", MENU_GRADIENT),
+                choices=choices,
+                show_choices=False
+            )
+            # ========== 菜单部分结束 ==========
             
-            console.print("[bold red]===============[bold white][ 𝐂𝐏𝐌 ][/bold white]===============[/bold red]")
-            
-            service = IntPrompt.ask(f"[bold][?] 选择功能按数字回车即可 [red][1-{choices[-1]} or 0][/red][/bold]", choices=choices, show_choices=False)
-            
-            console.print("[bold red]===============[bold white][ 𝐂𝐏𝐌 ][/bold white]===============[/bold red]")
-            
-            if service == 0: # Exit
+            if service == 0 or service == "00": # Exit
                 console.print("[bold white] 感谢使用 有任何问题快手联系老季[/bold white]")
             elif service == 1: # Increase Money
-                console.print("[bold yellow][bold white][?][/bold white] 你想要多少绿钞说个数老季帮你实现！[/bold yellow]")
-                amount = IntPrompt.ask("[?] Amount")
-                console.print("[%] Saving your data: ", end=None)
-                if amount > 0 and amount <= 500000000:
+                console.print("[bold yellow][bold white][?][/bold white] 请输入游戏你想显示的金币数量?[/bold yellow]")
+                amount = IntPrompt.ask("[?] 数量")
+                console.print("[%] 正在保存数据: ", end=None)
+                if 0 < amount <= 500000000:
                     if cpm.set_player_money(amount):
-                        console.print("[bold green]保存成功啦 (✔)[/bold green]")
+                        console.print("[bold green]✓ 数据保存成功[/bold green]")
                         console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出 退出回y 返回选n ", choices=["y", "n"], default="n")
+                        answ = Prompt.ask("[?] 是否退出？(y退出/n返回) ", choices=["y", "n"], default="n")
                         if answ == "y": console.print("[bold white] 感谢使用 有任何问题快手联系老季[/bold white]")
                         else: continue
                     else:
-                        console.print("[bold red]密码或者秘钥错误(✘)[/bold red]")
-                        console.print("[bold red]检查你的账号密码和秘钥再次重试 (✘)[/bold red]")
+                        console.print("[bold red]✘ 操作失败：数量输入错误[/bold red]")
+                        console.print("[bold red]我也不知道 你再试试 (✘)[/bold red]")
                         sleep(2)
                         continue
                 else:
@@ -233,19 +314,19 @@ if __name__ == "__main__":
                     sleep(2)
                     continue
             elif service == 2:  # Increase Coins
-                console.print("[bold yellow][bold white][?][/bold white] 说个数你要多少金币?[/bold yellow]")
+                console.print("[bold yellow][bold white][?][/bold white] 请输入游戏你想显示的金币数量?[/bold yellow]")
                 amount = IntPrompt.ask("[?] Amount")
                 print("[ % ] Saving your data: ", end="")
                 if amount > 0 and amount <= 500000:
                     if cpm.set_player_coins(amount):
-                        console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
+                        console.print("[bold green]保存中  (✔)[/bold green]")
                         console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                        if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
+                        answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
+                        if answ == "y": console.print("[bold white] 欢迎使用老季工具箱下次再来[/bold white]")
                         else: continue
                     else:
-                        console.print("[bold red]FAILED[/bold red]")
-                        console.print("[bold red]Please Try Again[/bold red]")
+                        console.print("[bold red]保存中[/bold red]")
+                        console.print("[bold red]有点问题 请重试[/bold red]")
                         sleep(2)
                         continue
                 else:
@@ -255,14 +336,14 @@ if __name__ == "__main__":
                     continue
             elif service == 3: # 刷满成就
                 console.print("[bold red][!] Note:[/bold red]: 正在帮你刷满成就.", end=None)
-                console.print("[bold red][!] Note:[/bold red]: 如果上号没有皇冠标志退出账号重试", end=None)
+                console.print("[bold red][!] Note:[/bold red]: ⚠ 提示：操作后请重新登录游戏查看皇冠标志", end=None)
                 sleep(2)
                 console.print("[%] 正在帮你刷满成就请耐心等待: ", end=None)
                 if cpm.set_player_rank():
-                    console.print("[bold yellow] '已成功刷满[/bold yellow]")
+                    console.print("[bold yellow] ' 成就数据已同步[/bold yellow]")
                     console.print("[bold yellow] '======================================[/bold yellow]")
-                    answ = Prompt.ask("[?] 已完成是否退出 ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
+                    if answ == "y": console.print("[bold white] 欢迎使用老季工具箱下次再来[/bold white]")
                     else: continue
                 else:
                     console.print("[bold red]FAILED[/bold red]")
@@ -277,8 +358,8 @@ if __name__ == "__main__":
                     if cpm.set_player_localid(new_id.upper()):
                         console.print("[bold yellow] '修改成功 老季牛B[/bold yellow]")
                         console.print("[bold yellow] '======================================[/bold yellow]")
-                        answ = Prompt.ask("[?] 改完了 回y退出 ?", choices=["y", "n"], default="n")
-                        if answ == "y": console.print("[bold white] 改完了老六子[/bold white]")
+                        answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
+                        if answ == "y": console.print("[bold white] 欢迎使用老季工具箱下次再来[/bold white]")
                         else: continue
                     else:
                         console.print("[bold red]报错了[/bold red]")
@@ -296,10 +377,10 @@ if __name__ == "__main__":
                 console.print("[%] Saving your data: ", end=None)
                 if len(new_name) >= 0 and len(new_name) <= 999999999:
                     if cpm.set_player_name(new_name):
-                        console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
+                        console.print("[bold yellow] '保存中[/bold yellow]")
                         console.print("[bold yellow] '======================================[/bold yellow]")
-                        answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                        if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
+                        answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
+                        if answ == "y": console.print("[bold white] 欢迎使用老季工具箱下次再来[/bold white]")
                         else: continue
                     else:
                         console.print("[bold red]FAILED[/bold red]")
@@ -319,8 +400,8 @@ if __name__ == "__main__":
                     if cpm.set_player_name(rainbow_gradient_string(new_name)):
                         console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
                         console.print("[bold yellow] '======================================[/bold yellow]")
-                        answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                        if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
+                        answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
+                        if answ == "y": console.print("[bold white] 欢迎使用老季工具箱下次再来[/bold white]")
                         else: continue
                     else:
                         console.print("[bold red]FAILED[/bold red]")
@@ -337,8 +418,8 @@ if __name__ == "__main__":
                 if cpm.set_player_plates():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
+                    if answ == "y": console.print("[bold white] 欢迎使用老季工具箱下次再来[/bold white]")
                     else: continue
                 else:
                     console.print("[bold red]FAILED[/bold red]")
@@ -382,7 +463,7 @@ if __name__ == "__main__":
                 if cpm.delete_player_friends():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -396,7 +477,7 @@ if __name__ == "__main__":
                 if cpm.unlock_paid_cars():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -409,7 +490,7 @@ if __name__ == "__main__":
                 if cpm.unlock_all_cars():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -422,7 +503,7 @@ if __name__ == "__main__":
                 if cpm.unlock_all_cars_siren():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?]保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -435,7 +516,7 @@ if __name__ == "__main__":
                 if cpm.unlock_w16():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -448,7 +529,7 @@ if __name__ == "__main__":
                 if cpm.unlock_horns():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -461,7 +542,7 @@ if __name__ == "__main__":
                 if cpm.disable_engine_damage():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?]保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -474,7 +555,7 @@ if __name__ == "__main__":
                 if cpm.unlimited_fuel():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -487,7 +568,7 @@ if __name__ == "__main__":
                 if cpm.unlock_houses():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -500,7 +581,7 @@ if __name__ == "__main__":
                 if cpm.unlock_smoke():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?]保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -513,7 +594,7 @@ if __name__ == "__main__":
                 if cpm.unlock_wheels():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -526,7 +607,7 @@ if __name__ == "__main__":
                 if cpm.unlock_animations():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -539,7 +620,7 @@ if __name__ == "__main__":
                 if cpm.unlock_equipments_male():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?]保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -552,7 +633,7 @@ if __name__ == "__main__":
                 if cpm.unlock_equipments_female():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -568,7 +649,7 @@ if __name__ == "__main__":
                     if cpm.set_player_wins(amount):
                         console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
                         console.print("[bold yellow] '======================================[/bold yellow]")
-                        answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                        answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                         if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                         else: continue
                     else:
@@ -589,7 +670,7 @@ if __name__ == "__main__":
                     if cpm.set_player_loses(amount):
                         console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
                         console.print("[bold yellow] '======================================[/bold yellow]")
-                        answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                        answ = Prompt.ask("[?]保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                         if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                         else: continue
                     else:
@@ -610,7 +691,7 @@ if __name__ == "__main__":
                 if cpm.account_clone(to_email, to_password):
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:     
@@ -630,7 +711,7 @@ if __name__ == "__main__":
                 if cpm.hack_car_speed(car_id, new_hp, new_inner_hp, new_nm, new_torque):
                     console.print("[bold green]SUCCESFUL (✔)[/bold green]")
                     console.print("================================")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?]保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -646,7 +727,7 @@ if __name__ == "__main__":
                 console.print("[red][%] HACKING CAR ANGLE[/red]: ", end=None)
                 if cpm.max_max1(car_id, custom):
                     console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
-                    answ = Prompt.ask("[red][?] DO YOU WANT TO EXIT[/red] ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[red][?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -662,7 +743,7 @@ if __name__ == "__main__":
                 console.print("[red][%] Setting Percentage [/red]: ", end=None)
                 if cpm.max_max2(car_id, custom):
                     console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
-                    answ = Prompt.ask("[bold green][?] DO YOU WANT TO EXIT[/bold green] ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[bold green][?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -678,7 +759,7 @@ if __name__ == "__main__":
                 console.print("[bold red][%] Setting Percentage [/bold red]: ", end=None)
                 if cpm.millage_car(car_id, custom):
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[bold][?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -694,7 +775,7 @@ if __name__ == "__main__":
                 console.print("[bold red][%] Setting BRAKE [/bold red]: ", end=None)
                 if cpm.brake_car(car_id, custom):
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[bold][?] 保存成功是否退出？(y退出/n返回) ?", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -708,7 +789,7 @@ if __name__ == "__main__":
                 console.print("[bold red][%] Removing Rear Bumper [/bold red]: ", end=None)
                 if cpm.rear_bumper(car_id):
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[bold][?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -722,7 +803,7 @@ if __name__ == "__main__":
                 console.print("[bold red][%] Removing Front Bumper [/bold red]: ", end=None)
                 if cpm.front_bumper(car_id):
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[bold][?] 保存成功是否退出？(y退出/n返回) ?", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -736,7 +817,7 @@ if __name__ == "__main__":
                 console.print(f"[bold red][%] Setting float key... [/bold red]", end=None)
                 if cpm.testin(custom):
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[bold][?] 保存成功是否退出？(y退出/n返回) ?", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -750,7 +831,7 @@ if __name__ == "__main__":
                 console.print("[bold red][%] Changing Password [/bold red]: ", end=None)
                 if cpm.change_password(new_password):
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[bold][?] 保存成功是否退出？(y退出/n返回) ?", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white]Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -766,7 +847,7 @@ if __name__ == "__main__":
                 console.print("[bold red][%] SAVING YOUR DATA [/bold red]: ", end=None)
                 if cpm.telmunnongodz(car_id, custom):
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[bold][?] 保存成功是否退出？(y退出/n返回) ?", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -782,7 +863,7 @@ if __name__ == "__main__":
                 console.print("[bold red][%] SAVING YOUR DATA [/bold red]: ", end=None)
                 if cpm.telmunnongonz(car_id, custom):
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[bold][?] 保存成功是否退出？(y退出/n返回) ?", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -796,7 +877,7 @@ if __name__ == "__main__":
                 console.print("[bold red][%] Changing Email [/bold red]: ", end=None)
                 if cpm.change_email(new_email):
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[bold][?] 保存成功是否退出？(y退出/n返回) ?", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white]Thank You for using my tool[/bold white]")
                     else: break
                 else:
@@ -808,7 +889,7 @@ if __name__ == "__main__":
                 if cpm.shittin():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
@@ -822,7 +903,7 @@ if __name__ == "__main__":
                 if cpm.unlock_crown():
                     console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
+                    answ = Prompt.ask("[?] 保存成功是否退出？(y退出/n返回)", choices=["y", "n"], default="n")
                     if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
                     else: continue
                 else:
