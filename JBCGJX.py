@@ -273,9 +273,9 @@ if __name__ == "__main__":
                 ("(33): 移除前保险杠", "5K"),
                 ("(34): 强改账户密码", "10K"),
                 ("(35): 强改账户邮箱", "10K"),
-                ("(36): 自定义扰流板", "10K"),
+                ("(36): 自定义尾翼", "10K"),
                 ("(37): 自定义车身套件", "10K"),
-                ("(38): 解锁高级车轮", "5K"),
+                ("(38): 解锁高级功能", "5K"),
                 ("(39): 解锁丰田皇冠", "10K")
             ]
 
@@ -358,28 +358,32 @@ if __name__ == "__main__":
                     sleep(2)
                     continue
             elif service == 4:  # 更改 ID
-                console.print("[bold yellow] '[?] 输入您的新 ID[/bold yellow]")
-                new_id = Prompt.ask("[?] ID")
-                if new_id == '999999':
-                    console.print("[bold yellow] 跳过 ID 修改操作 [/bold yellow]")
+                console.print("[bold yellow][?] 输入您的新 ID（允许超长字符，禁止空格）[/bold yellow]")
+                new_id = Prompt.ask("[?] ID").strip()  # 去除首尾空格
+    
+    # 验证逻辑：仅禁止空格且非空
+                if ' ' in new_id or not new_id:
+                    console.print("[bold red]错误: ID不能包含空格或为空！(✘)[/bold red]")
+                    sleep(2)
                     continue
-                console.print("[%] 保存数据: ", end=None)
-                if True:  # 表示无长度限制
-                    if cpm.set_player_id(new_id):
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                        if answ == "y":
-                            console.print("[bold white] 感谢使用本工具[/bold white]")
-                            break
-                    else:
-                        console.print("[bold red]操作失败 (✘)[/bold red]")
-                        console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                        sleep(2)
-                        continue
+    
+                    console.print("[%] 保存数据: ", end=None)
+    
+    # 调用方法（根据实际需求选择以下两种方式之一）
+    # 方式1：直接传递原始输入（保留大小写）
+    # if cpm.set_player_id(new_id):
+    
+    # 方式2：转换为大写（参考CyloTool.py逻辑）
+                if cpm.set_player_localid(new_id.upper()):  # 假设需调用 set_player_localid
+                    console.print("[bold green]操作成功 (✔)[/bold green]")
+                    console.print("[bold green]======================================[/bold green]")
+                    answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
+                    if answ == "y":
+                        console.print("[bold white] 感谢使用本工具[/bold white]")
+                        break
                 else:
                     console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]ID长度不符合要求! (✘)[/bold red]")
+                    console.print("[bold red]请检查ID格式或稍后重试! (✘)[/bold red]")
                     sleep(2)
                     continue
             elif service == 5:  # 更改名称
@@ -427,12 +431,13 @@ if __name__ == "__main__":
                     console.print("[bold red]名称长度不符合要求! (✘)[/bold red]")
                     sleep(2)
                     continue
-            elif service == 7:  # 车牌号码
-                console.print("[bold yellow] '[?] 输入您的新车牌号码[/bold yellow]")
-                new_license_plate = Prompt.ask("[?] 车牌号码")
-                console.print("[%] 保存数据: ", end=None)
-                if len(new_license_plate) >= 0 and len(new_license_plate) <= 10:
-                    if cpm.set_player_license_plate(new_license_plate):
+            elif service == 7:
+                new_plate = Prompt.ask("[?] 车牌号码（仅限字母和数字）").strip().upper()
+                if not new_plate.isalnum():
+                    console.print("[bold red]错误: 车牌只能包含字母和数字![/bold red]")
+                    sleep(2)
+                    continue
+                    if cpm.set_player_plates(new_plate):  # 统一方法名
                         console.print("[bold green]操作成功 (✔)[/bold green]")
                         console.print("[bold green]======================================[/bold green]")
                         answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -449,15 +454,13 @@ if __name__ == "__main__":
                     console.print("[bold red]车牌号码长度不符合要求! (✘)[/bold red]")
                     sleep(2)
                     continue
-            elif service == 8:  # 删除账户
-                console.print("[bold red][!] 注意:[/bold red] 此操作将永久删除您的账户。")
-                confirm = Prompt.ask("[?] 是否确认删除？", choices=["y", "n"], default="n")
+            elif service == 8:
+                console.print("[bold red][!] 警告: 此操作将永久删除账户，且无法恢复！[/bold red]")
+                confirm = Prompt.ask("[?] 确认删除？(y/n)", choices=["y", "n"], default="n")
                 if confirm == "y":
-                    console.print("[%] 删除账户: ", end=None)
-                    if cpm.delete_player_account():
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        break
+                    if cpm.delete():  # 统一方法名
+                        console.print("[bold green]账户已删除 (✔)[/bold green]")
+                        break  # 删除后直接退出
                     else:
                         console.print("[bold red]操作失败 (✘)[/bold red]")
                         console.print("[bold red]请稍后重试! (✘)[/bold red]")
@@ -471,7 +474,7 @@ if __name__ == "__main__":
                 console.print("[bold yellow] '[?] 输入您的新账户密码[/bold yellow]")
                 new_password = Prompt.ask("[?] 密码", password=True)
                 console.print("[%] 注册账户: ", end=None)
-                if cpm.register_player_account(new_email, new_password):
+                if cpm.register(new_email, new_password):
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -487,7 +490,7 @@ if __name__ == "__main__":
                 console.print("[bold yellow] '[?] 输入您要删除的好友 ID[/bold yellow]")
                 friend_id = Prompt.ask("[?] 好友 ID")
                 console.print("[%] 删除好友: ", end=None)
-                if cpm.delete_player_friend(friend_id):
+                if cpm.delete_player_friends(friend_id):
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -499,9 +502,9 @@ if __name__ == "__main__":
                     console.print("[bold red]请稍后重试! (✘)[/bold red]")
                     sleep(2)
                     continue
-            elif service == 11:  # 解锁付费车辆
-                console.print("[%] 解锁付费车辆: ", end=None)
-                if cpm.unlock_paid_vehicles():
+            elif service == 11:
+                console.print("[bold yellow][!] 注意: 此操作可能需要较长时间，请勿中断...[/bold yellow]")
+                if cpm.unlock_paid_cars():  # 统一方法名
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -515,7 +518,7 @@ if __name__ == "__main__":
                     continue
             elif service == 12:  # 解锁所有车辆
                 console.print("[%] 解锁所有车辆: ", end=None)
-                if cpm.unlock_all_vehicles():
+                if cpm.unlock_all_cars():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -529,7 +532,7 @@ if __name__ == "__main__":
                     continue
             elif service == 13:  # 解锁所有车辆警笛
                 console.print("[%] 解锁所有车辆警笛: ", end=None)
-                if cpm.unlock_all_vehicle_whistles():
+                if cpm.unlock_all_cars_siren():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -543,7 +546,7 @@ if __name__ == "__main__":
                     continue
             elif service == 14:  # 解锁 W16 引擎
                 console.print("[%] 解锁 W16 引擎: ", end=None)
-                if cpm.unlock_w16_engine():
+                if cpm.unlock_w16():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -557,7 +560,7 @@ if __name__ == "__main__":
                     continue
             elif service == 15:  # 解锁所有喇叭
                 console.print("[%] 解锁所有喇叭: ", end=None)
-                if cpm.unlock_all_horns():
+                if cpm.unlock_horns():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -571,7 +574,7 @@ if __name__ == "__main__":
                     continue
             elif service == 16:  # 解锁免伤模式
                 console.print("[%] 解锁免伤模式: ", end=None)
-                if cpm.unlock_invincibility_mode():
+                if cpm.disable_engine_damage():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -585,7 +588,7 @@ if __name__ == "__main__":
                     continue
             elif service == 17:  # 解锁无限燃料
                 console.print("[%] 解锁无限燃料: ", end=None)
-                if cpm.unlock_unlimited_fuel():
+                if cpm.unlimited_fuel():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -599,7 +602,7 @@ if __name__ == "__main__":
                     continue
             elif service == 18:  # 解锁家园 3
                 console.print("[%] 解锁家园 3: ", end=None)
-                if cpm.unlock_home_3():
+                if cpm.unlock_houses():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -613,7 +616,7 @@ if __name__ == "__main__":
                     continue
             elif service == 19:  # 解锁烟雾特效
                 console.print("[%] 解锁烟雾特效: ", end=None)
-                if cpm.unlock_smoke_effect():
+                if cpm.unlock_smoke():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -641,7 +644,7 @@ if __name__ == "__main__":
                     continue
             elif service == 21:  # 解锁动画效果
                 console.print("[%] 解锁动画效果: ", end=None)
-                if cpm.unlock_animation_effects():
+                if cpm.unlock_animations():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -655,7 +658,7 @@ if __name__ == "__main__":
                     continue
             elif service == 22:  # 解锁男性装备
                 console.print("[%] 解锁男性装备: ", end=None)
-                if cpm.unlock_male_equipment():
+                if cpm.unlock_equipments_male():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -669,7 +672,7 @@ if __name__ == "__main__":
                     continue
             elif service == 23:  # 解锁女性装备
                 console.print("[%] 解锁女性装备: ", end=None)
-                if cpm.unlock_female_equipment():
+                if cpm.unlock_equipments_female():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -686,7 +689,7 @@ if __name__ == "__main__":
                 win_count = IntPrompt.ask("[?] 次数")
                 console.print("[%] 保存数据: ", end=None)
                 if win_count >= 0:
-                    if cpm.set_match_win_count(win_count):
+                    if cpm.set_player_wins(win_count):
                         console.print("[bold green]操作成功 (✔)[/bold green]")
                         console.print("[bold green]======================================[/bold green]")
                         answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -703,276 +706,85 @@ if __name__ == "__main__":
                     console.print("[bold red]请使用有效数值! (✘)[/bold red]")
                     sleep(2)
                     continue
-            elif service == 25:  # 更改比赛失败次数
-                console.print("[bold yellow][bold white][?][/bold white] 输入您想要更改的比赛失败次数[/bold yellow]")
-                lose_count = IntPrompt.ask("[?] 次数")
-                console.print("[%] 保存数据: ", end=None)
-                if lose_count >= 0:
-                    if cpm.set_match_lose_count(lose_count):
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                        if answ == "y":
-                            console.print("[bold white] 感谢使用本工具[/bold white]")
-                            break
+            elif service == "25":
+                    lose_count = IntPrompt.ask("[?] 输入您想要更改的比赛失败次数")
+                    console.print("[%] 保存数据: ", end="")
+                    if lose_count >= 0:
+                        if cpm.set_player_loses(lose_count):
+                            console.print("[bold green]操作成功 (✔)[/bold green]")
+                        else:
+                            console.print("[bold red]操作失败 (✘)[/bold red]")
+                    else:
+                        console.print("[bold red]无效数值! (✘)[/bold red]")
+                    time.sleep(2)
+
+            elif service == "26":
+                    account_id = Prompt.ask("[?] 输入要克隆的账户 ID")
+                    clone_data = Prompt.ask("[?] 输入克隆数据")
+                    console.print("[%] 克隆账户: ", end="")
+                    if cpm.account_clone(account_id, clone_data):
+                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     else:
                         console.print("[bold red]操作失败 (✘)[/bold red]")
-                        console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                        sleep(2)
-                        continue
-                else:
-                    console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]请使用有效数值! (✘)[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 26:  # 克隆账户
-                console.print("[bold red][!] 注意:[/bold red] 克隆账户操作不可逆，请谨慎操作。")
-                confirm = Prompt.ask("[?] 是否确认克隆账户？", choices=["y", "n"], default="n")
-                if confirm == "y":
-                    console.print("[%] 克隆账户: ", end=None)
-                    if cpm.clone_player_account():
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                        if answ == "y":
-                            console.print("[bold white] 感谢使用本工具[/bold white]")
-                            break
+                    time.sleep(2)
+
+            elif service == "27":
+                    car_id = Prompt.ask("[?] 输入车辆 ID")
+                    brake_value = Prompt.ask("[?] 输入刹车设定值")
+                    if cpm.brake_car(car_id, brake_value):
+                        console.print("[%] 刹车设置成功")
                     else:
-                        console.print("[bold red]操作失败 (✘)[/bold red]")
-                        console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                        sleep(2)
-                        continue
-                else:
-                    continue
-            elif service == 27:  # 自定义生命值
-                console.print("[bold yellow][bold white][?][/bold white] 输入您想要自定义的生命值[/bold yellow]")
-                health = IntPrompt.ask("[?] 生命值")
-                console.print("[%] 保存数据: ", end=None)
-                if health > 0:
-                    if cpm.set_player_health(health):
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                        if answ == "y":
-                            console.print("[bold white] 感谢使用本工具[/bold white]")
-                            break
+                        console.print("[%] 设置失败")
+                    time.sleep(2)
+
+            elif service == "28":
+                    car_id = Prompt.ask("[?] 输入车辆 ID")
+                    tune_value = Prompt.ask("[?] 输入调校设定值")
+                    if cpm.tune_car(car_id, tune_value):
+                        console.print("[%] 调校成功")
                     else:
-                        console.print("[bold red]操作失败 (✘)[/bold red]")
-                        console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                        sleep(2)
-                        continue
-                else:
-                    console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]请使用有效数值! (✘)[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 28:  # 自定义角度
-                console.print("[bold yellow][bold white][?][/bold white] 输入您想要自定义的角度[/bold yellow]")
-                angle = IntPrompt.ask("[?] 角度")
-                console.print("[%] 保存数据: ", end=None)
-                if angle >= 0 and angle <= 360:
-                    if cpm.set_player_angle(angle):
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                        if answ == "y":
-                            console.print("[bold white] 感谢使用本工具[/bold white]")
-                            break
+                        console.print("[%] 调校失败")
+                    time.sleep(2)
+
+            elif service == "29":
+                    car_id = Prompt.ask("[?] 输入车辆 ID")
+                    aero_value = Prompt.ask("[?] 输入空气动力学设定值")
+                    if cpm.adjust_aero(car_id, aero_value):
+                        console.print("[%] 空气动力学调整成功")
                     else:
-                        console.print("[bold red]操作失败 (✘)[/bold red]")
-                        console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                        sleep(2)
-                        continue
-                else:
-                    console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]请使用有效数值! (✘)[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 29:  # 自定义轮胎燃烧器
-                console.print("[bold yellow][bold white][?][/bold white] 输入您想要自定义的轮胎燃烧器设置[/bold yellow]")
-                burner_setting = Prompt.ask("[?] 设置")
-                console.print("[%] 保存数据: ", end=None)
-                if burner_setting:
-                    if cpm.set_tire_burner_setting(burner_setting):
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                        if answ == "y":
-                            console.print("[bold white] 感谢使用本工具[/bold white]")
-                            break
+                        console.print("[%] 调整失败")
+                    time.sleep(2)
+
+            elif service == "30":
+                    car_id = Prompt.ask("[?] 输入车辆 ID")
+                    engine_value = Prompt.ask("[?] 输入发动机设定值")
+                    if cpm.modify_engine(car_id, engine_value):
+                        console.print("[%] 发动机修改成功")
                     else:
-                        console.print("[bold red]操作失败 (✘)[/bold red]")
-                        console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                        sleep(2)
-                        continue
-                else:
-                    console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]设置不能为空! (✘)[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 30:  # 自定义车辆里程
-                console.print("[bold yellow][bold white][?][/bold white] 输入您想要自定义的车辆里程[/bold yellow]")
-                mileage = IntPrompt.ask("[?] 里程")
-                console.print("[%] 保存数据: ", end=None)
-                if mileage >= 0:
-                    if cpm.set_vehicle_mileage(mileage):
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                        if answ == "y":
-                            console.print("[bold white] 感谢使用本工具[/bold white]")
-                            break
+                        console.print("[%] 修改失败")
+                    time.sleep(2)
+
+            elif service == "36":
+                    car_id = Prompt.ask("[?] 输入车辆 ID")
+                    transmission_value = Prompt.ask("[?] 输入变速箱设定值")
+                    if cpm.upgrade_transmission(car_id, transmission_value):
+                        console.print("[%] 变速箱升级成功")
                     else:
-                        console.print("[bold red]操作失败 (✘)[/bold red]")
-                        console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                        sleep(2)
-                        continue
-                else:
-                    console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]请使用有效数值! (✘)[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 31:  # 自定义车辆刹车
-                console.print("[bold yellow][bold white][?][/bold white] 输入您想要自定义的车辆刹车设置[/bold yellow]")
-                brake_setting = Prompt.ask("[?] 设置")
-                console.print("[%] 保存数据: ", end=None)
-                if brake_setting:
-                    if cpm.set_vehicle_brake_setting(brake_setting):
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                        if answ == "y":
-                            console.print("[bold white] 感谢使用本工具[/bold white]")
-                            break
+                        console.print("[%] 升级失败")
+                    time.sleep(2)
+
+            elif service == "37":
+                    body_kit_setting = Prompt.ask("[?] 输入车身套件设置")
+                    custom_value = Prompt.ask("[?] 输入自定义参数")
+                    if cpm.account_clone(body_kit_setting, custom_value):
+                        console.print("[%] 车身套件自定义成功")
                     else:
-                        console.print("[bold red]操作失败 (✘)[/bold red]")
-                        console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                        sleep(2)
-                        continue
-                else:
-                    console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]设置不能为空! (✘)[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 32:  # 移除后保险杠
-                console.print("[%] 移除后保险杠: ", end=None)
-                if cpm.remove_rear_bumper():
-                    console.print("[bold green]操作成功 (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                    if answ == "y":
-                        console.print("[bold white] 感谢使用本工具[/bold white]")
-                        break
-                else:
-                    console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 33:  # 移除前保险杠
-                console.print("[%] 移除前保险杠: ", end=None)
-                if cpm.remove_front_bumper():
-                    console.print("[bold green]操作成功 (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                    if answ == "y":
-                        console.print("[bold white] 感谢使用本工具[/bold white]")
-                        break
-                else:
-                    console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 34:  # 更改账户密码
-                console.print("[bold yellow][bold white][?][/bold white] 输入您的新账户密码[/bold yellow]")
-                new_password = Prompt.ask("[?] 密码", password=True)
-                console.print("[%] 更改账户密码: ", end=None)
-                if new_password:
-                    if cpm.change_account_password(new_password):
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                        if answ == "y":
-                            console.print("[bold white] 感谢使用本工具[/bold white]")
-                            break
-                    else:
-                        console.print("[bold red]操作失败 (✘)[/bold red]")
-                        console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                        sleep(2)
-                        continue
-                else:
-                    console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]密码不能为空! (✘)[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 35:  # 更改账户邮箱
-                console.print("[bold yellow][bold white][?][/bold white] 输入您的新账户邮箱[/bold yellow]")
-                new_email = Prompt.ask("[?] 邮箱")
-                console.print("[%] 更改账户邮箱: ", end=None)
-                if new_email:
-                    if cpm.change_account_email(new_email):
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                        if answ == "y":
-                            console.print("[bold white] 感谢使用本工具[/bold white]")
-                            break
-                    else:
-                        console.print("[bold red]操作失败 (✘)[/bold red]")
-                        console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                        sleep(2)
-                        continue
-                else:
-                    console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]邮箱不能为空! (✘)[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 36:  # 自定义扰流板
-                console.print("[bold yellow][bold white][?][/bold white] 输入您想要自定义的扰流板设置[/bold yellow]")
-                spoiler_setting = Prompt.ask("[?] 设置")
-                console.print("[%] 保存数据: ", end=None)
-                if spoiler_setting:
-                    if cpm.set_spoiler_setting(spoiler_setting):
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                        if answ == "y":
-                            console.print("[bold white] 感谢使用本工具[/bold white]")
-                            break
-                    else:
-                        console.print("[bold red]操作失败 (✘)[/bold red]")
-                        console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                        sleep(2)
-                        continue
-                else:
-                    console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]设置不能为空! (✘)[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 37:  # 自定义车身套件
-                console.print("[bold yellow][bold white][?][/bold white] 输入您想要自定义的车身套件设置[/bold yellow]")
-                body_kit_setting = Prompt.ask("[?] 设置")
-                console.print("[%] 保存数据: ", end=None)
-                if body_kit_setting:
-                    if cpm.set_body_kit_setting(body_kit_setting):
-                        console.print("[bold green]操作成功 (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
-                        if answ == "y":
-                            console.print("[bold white] 感谢使用本工具[/bold white]")
-                            break
-                    else:
-                        console.print("[bold red]操作失败 (✘)[/bold red]")
-                        console.print("[bold red]请稍后重试! (✘)[/bold red]")
-                        sleep(2)
-                        continue
-                else:
-                    console.print("[bold red]操作失败 (✘)[/bold red]")
-                    console.print("[bold red]设置不能为空! (✘)[/bold red]")
-                    sleep(2)
+                        console.print("[%] 自定义失败")
+                    time.sleep(2)
                     continue
             elif service == 38:  # 解锁高级车轮
                 console.print("[%] 解锁高级车轮: ", end=None)
-                if cpm.unlock_advanced_wheels():
+                if cpm.shittin():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
@@ -986,7 +798,7 @@ if __name__ == "__main__":
                     continue
             elif service == 39:  # 解锁丰田皇冠
                 console.print("[%] 解锁丰田皇冠: ", end=None)
-                if cpm.unlock_toyota_crown():
+                if cpm.unlock_crown():
                     console.print("[bold green]操作成功 (✔)[/bold green]")
                     console.print("[bold green]======================================[/bold green]")
                     answ = Prompt.ask("[?] 是否退出？", choices=["y", "n"], default="n")
