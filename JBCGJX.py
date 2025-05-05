@@ -1,4 +1,5 @@
- #!/usr/bin/python
+#!/usr/bin/python
+# -*- coding: utf-8 -*- # 添加这行来更好地支持中文
 
 import random
 import urllib.parse
@@ -9,828 +10,847 @@ from rich.console import Console
 from rich.prompt import Prompt, IntPrompt
 from rich.text import Text
 from rich.style import Style
-import pystyle
-from pystyle import Colors, Colorate
+from rich.table import Table # Import Table for menu alignment
 
-from cylo import Bubcyz
+# Ensure cylo.py is in the same directory
+try:
+    from cylo import Bubcyz
+except ImportError:
+    print("[错误] 找不到 cylo.py 文件。请确保它和 JBCGJX.py 在同一目录下。")
+    sys.exit(1)
+
+# --- ASCII 艺术图案 ---
+# 您提供的包含中文文字的爱心图案，精确复制
+ascii_art_jbc_left = r"""
+　  　\.　-　 -　.　　
+　　　 '　　 常　 _ , -`.
+　　 '　　　　_,'　　 _,'
+　　'　　　,-'　　　_/ 快
+　 ' 爱 ,-' \　　 _/　 手
+　'　 ,'　　 \　_'　　 搜
+　'　'　　　 _\'　　　 季
+　' ,　　_,-'　\　　　 伯
+　\,_,--'　　　 \　　　常
+"""
+# --- ASCII Art End ---
 
 def signal_handler(sig, frame):
-    print("\n Bye Bye...")
+    print("\n[bold yellow]再见！感谢使用！[/bold yellow]")
     sys.exit(0)
 
-def gradient_text(text, colors):
-    lines = text.splitlines()
+def interpolate_color(start_color, end_color, fraction):
+    """Interpolates between two hex colors"""
+    try:
+        start_rgb = tuple(int(start_color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+        end_rgb = tuple(int(end_color.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
+        interpolated_rgb = tuple(int(start + fraction * (end - start)) for start, end in zip(start_rgb, end_rgb))
+        interpolated_rgb = tuple(max(0, min(255, val)) for val in interpolated_rgb)
+        return "#{:02x}{:02x}{:02x}".format(*interpolated_rgb)
+    except ValueError:
+        return "#FFFFFF" # White
+
+# This gradient function returns a rich.Text object for single line, used for prompts
+def random_gradient_text_line_rich(text):
+    """Applies a random gradient to a single line of text and returns rich.Text"""
+    modified_text = Text()
+    num_chars = len(text)
+    if num_chars == 0:
+        return modified_text
+
+    start_rgb = [random.randint(30, 220) for _ in range(3)]
+    end_rgb = [random.randint(30, 220) for _ in range(3)]
+
+    start_color = "#{:02x}{:02x}{:02x}".format(*start_rgb)
+    end_color = "#{:02x}{:02x}{:02x}".format(*end_rgb)
+
+    for i, char in enumerate(text):
+        fraction = i / max(num_chars - 1, 1)
+        interpolated_color = interpolate_color(start_color, end_color, fraction)
+        modified_text.append(char, style=Style(color=interpolated_color))
+    return modified_text
+
+# This function is specifically for generating the [RRGGBB]text format for rainbow names, matching CyloTool.py
+def rainbow_gradient_string_cpm_format(customer_name):
+    modified_string = ""
+    num_chars = len(customer_name)
+    # Generate random start and end colors for the gradient, similar to JBCGJX's approach
+    start_rgb = [random.randint(30, 220) for _ in range(3)]
+    end_rgb = [random.randint(30, 220) for _ in range(3)]
+    start_color = "#{:02x}{:02x}{:02x}".format(*start_rgb)
+    end_color = "#{:02x}{:02x}{:02x}".format(*end_rgb)
+
+    for i, char in enumerate(customer_name):
+        fraction = i / max(num_chars - 1, 1)
+        # Interpolate color and format as RRGGBB string
+        interpolated_hex = interpolate_color(start_color, end_color, fraction).lstrip('#')
+        modified_string += f'[{interpolated_hex}]{char}'
+    return modified_string
+
+
+def gradient_text_multi_line(text, colors):
+    """Applies a vertical gradient to multi-line text"""
+    lines = text.strip('\n').splitlines()
+    if not lines:
+        return Text()
     height = len(lines)
-    width = max(len(line) for line in lines)
+    # Removed complex width calculation as it can be unreliable with mixed characters.
+    # Relying on rich's handling of lines as is.
+
     colorful_text = Text()
     for y, line in enumerate(lines):
-        for x, char in enumerate(line):
-            if char != ' ':
-                color_index = int(((x / (width - 1 if width > 1 else 1)) + (y / (height - 1 if height > 1 else 1))) * 0.5 * (len(colors) - 1))
-                color_index = min(max(color_index, 0), len(colors) - 1)  # Ensure the index is within bounds
-                style = Style(color=colors[color_index])
-                colorful_text.append(char, style=style)
-            else:
-                colorful_text.append(char)
-        colorful_text.append("\n")
+        fraction_y = y / (height - 1) if height > 1 else 0
+        color_index = int(fraction_y * (len(colors) - 1))
+        color_index = min(max(color_index, 0), len(colors) - 1)
+
+        style = Style(color=colors[color_index])
+        # Append line directly without padding
+        colorful_text.append(line, style=style)
+
+        if y < len(lines) - 1:
+             colorful_text.append("\n")
     return colorful_text
+
+def random_gradient_separator(title, console, separator_char='=', total_width=60):
+    """Prints a fixed-width separator line with a centered title and random gradient color per line"""
+    # Generate random colors for this specific separator line
+    colors = [
+        "#{:06x}".format(random.randint(50, 255)), # Ensure colors are not too dark
+        "#{:06x}".format(random.randint(50, 255)),
+        "#{:06x}".format(random.randint(50, 255)),
+    ] # Use 3 random colors for a more varied gradient
+
+    title_text_str = f" {title} " # Add space around title
+    # Using len() for width calculation
+    title_width = len(title_text_str)
+
+    # Calculate space needed for separator characters on each side
+    actual_total_width = max(total_width, title_width + 4)
+
+    separator_space = actual_total_width - title_width
+    left_len = separator_space // 2
+    right_len = separator_space - left_len
+
+    separator_line_text = Text()
+
+    # Create the full line as a single string for gradient application
+    full_line_chars = (separator_char * left_len) + title_text_str + (separator_char * right_len)
+
+    # Apply horizontal gradient across the entire line
+    num_chars_in_line = len(full_line_chars)
+    for i, char in enumerate(full_line_chars):
+        fraction_x = i / max(num_chars_in_line - 1, 1)
+        color_index = int(fraction_x * (len(colors) - 1))
+        color_index = min(max(color_index, 0), len(colors) - 1)
+        style = Style(color=colors[color_index])
+        separator_line_text.append(char, style=style)
+
+    # Removed justify="center" to potentially allow custom alignment if needed, though usually separators are centered
+    # For a left-aligned ASCII art and centered separators, this might be fine.
+    console.print(separator_line_text)
 
 
 def banner(console):
+    """Displays banner including ASCII art"""
     os.system('cls' if os.name == 'nt' else 'clear')
-    brand_name = "Tool version is 0.3"
-    
+
+    # --- Display Gradient ASCII Art (Left Aligned) ---
+    # Using red/pink gradient for the heart (reverted colors)
+    art_colors = ["#FF0000", "#FF69B4", "#FFB6C1"] # Red to Pink colors
+    # Apply gradient to the left-aligned art
+    colored_art = gradient_text_multi_line(ascii_art_jbc_left.strip(), art_colors) # Use the exact heart art
+    # Print the art left-aligned (default justify is left)
+    console.print(colored_art)
+    console.print("\n")
+    # --- ASCII Art End ---
+
+    # Updated brand name and left justification (kept from previous modification)
+    brand_name = "季伯常专属工具版本 v1.0"
     text = Text(brand_name, style="bold black")
-    
-    console.print(text)
-    console.print("[bold white] ============================================================[/bold white]")
-    console.print("[bold yellow]      𝗣𝗟𝗘𝗔𝗦𝗘 𝗟𝗢𝗚 𝗢𝗨𝗧 𝗙𝗥𝗢𝗠 𝗖𝗣𝗠 𝗕𝗘𝗙𝗢𝗥𝗘 𝗨𝗦𝗜𝗡𝗚 𝗧𝗛𝗜𝗦 𝗧𝗢𝗢𝗟[/bold yellow]")
-    console.print("[bold red]      𝗦𝗛𝗔𝗥𝗜𝗡𝗚 𝗧𝗛𝗘 𝗔𝗖𝗖𝗘𝗦 𝗞𝗘𝗬 𝗜𝗦 𝗡𝗢𝗧 𝗔𝗟𝗟𝗢𝗪𝗘𝗗[/bold red]")
-    console.print("[bold white] ============================================================[/bold white]")  
-    
-def load_player_data(cpm):
+    console.print(text, justify="left")
+
+
+    # Use the random gradient separator for banner tips
+    random_gradient_separator("提示信息", console, separator_char='-')
+
+    console.print("[bold yellow]      请在使用本工具前，先在 CPM 游戏中登出账号！[/bold yellow]")
+    console.print("[bold red]      严禁分享您的访问密钥 检测到IP波动频繁封禁秘钥！[/bold red]")
+    console.print("[bold red]      快手搜季伯常私信获得工具箱安装教程及使用权！@快手搜季伯常[/bold red]")
+    random_gradient_separator("结束提示", console, separator_char='-')
+
+
+def load_player_data(cpm, console):
+    """Loads and displays player data"""
+    # Use random gradient separator for "玩家信息" with star separator
+    random_gradient_separator("玩家信息", console, separator_char='*')
+
     response = cpm.get_player_data()
-    
+
     if response.get('ok'):
         data = response.get('data')
+        required_keys = ['localID', 'money', 'coin', "Name", "FriendsID", "carIDnStatus"]
 
-        if all(key in data for key in ['floats', 'localID', 'money', 'coin', "integers"]):
-            
-            console.print("[bold][red]========[/red][ ᴘʟᴀʏᴇʀ ᴅᴇᴛᴀɪʟꜱ ][red]========[/red][/bold]")
-            
-            console.print(f"[bold white]   >> Name        : {data.get('Name', 'UNDEFINED')}[/bold white]")
-            console.print(f"[bold white]   >> LocalID     : {data.get('localID', 'UNDEFINED')}[/bold white]")
-            console.print(f"[bold white]   >> Moneys      : {data.get('money', 'UNDEFINED')}[/bold white]")
-            console.print(f"[bold white]   >> Coins       : {data.get('coin', 'UNDEFINED')}[/bold white]")
+        # CyloTool.py Checks for 'floats' and 'integers' which might not be strictly necessary here
+        # Keeping JBCGJX.py's check for essential keys and carIDnStatus structure
+        if all(key in data for key in required_keys) and isinstance(data.get('carIDnStatus'), dict):
+            console.print(f"[bold white]   >> 昵称 (Name)   : {data.get('Name', '未定义')}[/bold white]")
+            console.print(f"[bold white]   >> ID (LocalID)  : {data.get('localID', '未定义')}[bold white]")
+            console.print(f"[bold white]   >> 绿钞 (Money)  : {data.get('money', '未定义')}[bold white]")
+            console.print(f"[bold white]   >> 金币 (Coins)  : {data.get('coin', '未定义')}[bold white]")
+
             friends_count = len(data.get("FriendsID", []))
-            console.print(f"[bold white]   >> Friends     : {friends_count}[/bold white]")
-            # Count Cars (Checking if it's nested)
-            car_data = data.get("carIDnStatus", {}).get("carGeneratedIDs", [])
-            # Remove duplicates by converting the list to a set
-            unique_car_data = set(car_data)
-            car_count = len(unique_car_data)
-            console.print(f"[bold white]   >> Car Count   : {car_count}[/bold white]")
-       
-        else:
-            console.print("[bold red] '! ERROR: new accounts must be signed-in to the game at least once (✘)[/bold red]")
-            exit(1)
-    else:
-        console.print("[bold red] '! ERROR: seems like your login is not properly set (✘)[/bold red]")
-        exit(1)
-     
+            console.print(f"[bold white]   >> 好友数量      : {friends_count}[/bold white]")
 
-def load_key_data(cpm):
+            # Using JBCGJX.py's more accurate car count logic
+            car_list = data.get("carIDnStatus", {}).get("carGeneratedIDs", [])
+            unique_car_list = set(car_list)
+            car_count = len(unique_car_list)
+            console.print(f"[bold white]   >> 车辆数量      : {car_count}[/bold white]")
+
+        else:
+            # Keeping JBCGJX.py's detailed error message
+            missing_keys = [key for key in required_keys if key not in data]
+            error_msg = "[bold red] ! 错误：无法加载完整的玩家数据。"
+            if missing_keys:
+                error_msg += f" 缺少键: {', '.join(missing_keys)}。"
+            error_msg += " 新账号必须至少登录一次游戏才能生成数据 (✘)[bold red]"
+            console.print(error_msg)
+            return False # Indicate failure
+    else:
+        # Keeping JBCGJX.py's detailed error message
+        error_detail = response.get('error', '未知错误')
+        console.print(f"[bold red] ! 错误：获取玩家数据失败。原因: {error_detail} (✘)[bold red]")
+        console.print("[bold yellow]   请检查您的网络连接和登录凭据是否正确。[/bold yellow]")
+        return False # Indicate failure
+    return True # Indicate success
+
+
+def load_key_data(cpm, console):
+    """Loads and displays Access Key information"""
+    # Use random gradient separator for "访问密钥信息" with dash separator
+    random_gradient_separator("访问密钥信息", console, separator_char='-')
 
     data = cpm.get_key_data()
-    
-    console.print("[bold][red]========[/red][ 𝘼𝘾𝘾𝙀𝙎𝙎 𝙆𝙀𝙔 𝘿𝙀𝙏𝘼𝙄𝙇𝙎 ][red]========[/red][/bold]")
-    
-    console.print(f"[bold white]   >> Access Key  [/bold white]: [black]{data.get('access_key')}[/black]")
-    
-    console.print(f"[bold white]   >> Telegram ID : {data.get('telegram_id')}[/bold white]")
-    
-    console.print(f"[bold white]   >> Balance     : {data.get('coins') if not data.get('is_unlimited') else 'Unlimited'}[/bold white]")
-    
 
-def prompt_valid_value(content, tag, password=False):
+    # Keeping JBCGJX.py's obscured key display
+    access_key = data.get('access_key', 'N/A')
+    if len(access_key) > 8:
+         displayed_key = f"{access_key[:4]}...{access_key[-4:]}"
+    else:
+         displayed_key = access_key
+
+    console.print(f"[bold white]   >> Access Key : {displayed_key}[/bold white]")
+    console.print(f"[bold white]   >> Telegram ID: {data.get('telegram_id', '未提供')}[/bold white]")
+
+    # Keeping JBCGJX.py's balance display
+    balance = data.get('coins', 'N/A')
+    is_unlimited = data.get('is_unlimited', False)
+    balance_display = "无限" if is_unlimited else balance
+    console.print(f"[bold white]   >> 余额 (点数): {balance_display}[/bold white]")
+
+
+def prompt_valid_value(content, tag, console, password=False):
+    """Prompts user for a valid (non-empty) value with gradient prompt text"""
+    # Apply random gradient to the prompt content using the rich text function
+    gradient_content = random_gradient_text_line_rich(content)
     while True:
-        value = Prompt.ask(content, password=password)
+        # Pass the rich.Text object with gradient to Prompt.ask
+        # password parameter controls input hiding
+        value = Prompt.ask(gradient_content, password=password, console=console)
         if not value or value.isspace():
-            console.print(f"[bold red]{tag} cannot be empty or just spaces. Please try again (✘)[/bold red]")
+            console.print(f"[bold red]输入错误：{tag} 不能为空或仅包含空格，请重新输入 (✘)[bold red]")
         else:
             return value
-            
-def load_client_details():
-    response = requests.get("http://ip-api.com/json")
-    data = response.json()
-    console.print("[bold red] =============[bold white][ 𝙇𝙊𝘾𝘼𝙏𝙄𝙊𝙉 ][/bold white]=============[/bold red]")
-    console.print(f"[bold white]    >> Country    : {data.get('country')} {data.get('zip')}[/bold white]")
-    console.print("[bold red] ===============[bold white][ ＭＥＮＵ ][/bold white]===========[/bold red]")
 
-def interpolate_color(start_color, end_color, fraction):
-    start_rgb = tuple(int(start_color[i:i+2], 16) for i in (1, 3, 5))
-    end_rgb = tuple(int(end_color[i:i+2], 16) for i in (1, 3, 5))
-    interpolated_rgb = tuple(int(start + fraction * (end - start)) for start, end in zip(start_rgb, end_rgb))
-    return "{:02x}{:02x}{:02x}".format(*interpolated_rgb)
+def load_client_details(console):
+    """Gets and displays approximate client location"""
+    try:
+        response = requests.get("http://ip-api.com/json", timeout=5)
+        response.raise_for_status()
+        data = response.json()
+        # Use random gradient separator for "地理位置 (估算)"
+        random_gradient_separator("地理位置 (估算)", console, separator_char='=')
+        console.print(f"[bold white]   >> 国家/地区: {data.get('country', '未知')} ({data.get('countryCode', '')})[/bold white]")
+        console.print(f"[bold white]   >> 城市     : {data.get('city', '未知')} {data.get('zip', '')}[/bold white]")
+    except requests.exceptions.RequestException as e:
+        console.print("[bold yellow] ! 警告：无法获取地理位置信息。[/bold yellow]")
+    finally:
+        # Use random gradient separator for "主菜单"
+        random_gradient_separator("主菜单", console, separator_char='=')
 
-def rainbow_gradient_string(customer_name):
-    modified_string = ""
-    num_chars = len(customer_name)
-    start_color = "{:06x}".format(random.randint(0, 0xFFFFFF))
-    end_color = "{:06x}".format(random.randint(0, 0xFFFFFF))
-    for i, char in enumerate(customer_name):
+
+# This gradient function returns a rich.Text object for single line
+def random_gradient_text_line(text):
+    """Applies a random gradient to a single line of text"""
+    modified_text = Text()
+    num_chars = len(text)
+    if num_chars == 0:
+        return modified_text
+
+    start_rgb = [random.randint(30, 220) for _ in range(3)]
+    end_rgb = [random.randint(30, 220) for _ in range(3)]
+
+    start_color = "#{:02x}{:02x}{:02x}".format(*start_rgb)
+    end_color = "#{:02x}{:02x}{:02x}".format(*end_rgb)
+
+    for i, char in enumerate(text):
         fraction = i / max(num_chars - 1, 1)
         interpolated_color = interpolate_color(start_color, end_color, fraction)
-        modified_string += f'[{interpolated_color}]{char}'
-    return modified_string
+        modified_text.append(char, style=Style(color=interpolated_color))
+    return modified_text
+
 
 if __name__ == "__main__":
     console = Console()
     signal.signal(signal.SIGINT, signal_handler)
-    while True:
+
+    while True: # Login loop
         banner(console)
-        acc_email = prompt_valid_value("[bold][?] Account Email[/bold]", "Email", password=False)
-        acc_password = prompt_valid_value("[bold][?] Account Password[/bold]", "Password", password=False)
-        acc_access_key = prompt_valid_value("[bold][?] Access Key[/bold]", "Access Key", password=False)
-        console.print("[bold yellow][%] Trying to Login[/bold yellow]: ", end=None)
-        cpm = Bubcyz(acc_access_key)
-        login_response = cpm.login(acc_email, acc_password)
+
+        # Get login info with gradient prompts and visible input
+        random_gradient_separator("账号登录", console, separator_char='=') # Separator before prompts
+
+        # Modified prompt calls to remove "[bold][?][/bold]" and set password=False
+        acc_email = prompt_valid_value("请输入账号邮箱:", "邮箱", console, password=False)
+        acc_password = prompt_valid_value("请输入账号密码:", "密码", console, password=False) # password=False for visible input
+        acc_access_key = prompt_valid_value("请输入访问密钥 (Access Key):", "Access Key", console, password=False) # password=False for visible input
+
+
+        console.print("[bold yellow][%] 正在尝试登录...", end="")
+
+        try:
+            cpm = Bubcyz(acc_access_key)
+            login_response = cpm.login(acc_email, acc_password)
+        except requests.exceptions.RequestException as e:
+            console.print(f"[bold red]登录失败 (网络错误 ✘)[bold red]")
+            console.print(f"[dim]   错误详情: {e}[/dim]")
+            console.print("[bold yellow]   请检查您的网络连接和登录凭据是否正确。[/bold yellow]")
+            sleep(3)
+            continue
+        except Exception as e:
+             console.print(f"[bold red]登录时发生未知错误 (✘)[bold red]")
+             console.print(f"[dim]   错误详情: {e}[/dim]")
+             sleep(3)
+             continue
+
         if login_response != 0:
+            # print(" ", end="") # Removed as rich print handles this better
             if login_response == 100:
-                console.print("[bold red]ACCOUNT NOT FOUND (✘)[/bold red]")
-                sleep(2)
-                continue
+                console.print("[bold red]登录失败：账号未找到 (✘)[bold red]")
             elif login_response == 101:
-                console.print("[bold red]WRONG PASSWORD (✘)[/bold red]")
-                sleep(2)
-                continue
+                console.print("[bold red]登录失败：密码错误 (✘)[bold red]")
             elif login_response == 103:
-                console.print("[bold red]INVALID ACCESS KEY (✘)[/bold red]")
-                sleep(2)
-                continue
+                console.print("[bold red]登录失败：无效的 Access Key (✘)[bold red]")
             else:
-                console.print("[bold red]TRY AGAIN[/bold red]")
-                console.print("[bold yellow] '! Note: make sure you filled out the fields ![/bold yellow]")
-                sleep(2)
-                continue
+                console.print(f"[bold red]登录失败：未知错误代码 {login_response} (✘)[bold red]")
+                console.print("[bold yellow] ! 提示：请确保您填写了所有字段！[/bold yellow]")
+            sleep(3)
+            continue
         else:
-            console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
+            console.print("[bold green]登录成功 (✔)[bold green]")
             sleep(1)
+
+
+        # --- Login successful, enter main menu loop ---
         while True:
-            banner(console)
-            load_player_data(cpm)
-            load_key_data(cpm)
-            load_client_details()
-            choices = ["00", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34", "35", "36", "37", "38", "39",]
-            console.print("[bold yellow][bold white](01)[/bold white]: 当前想显示多少绿钞按回车           [bold red]1K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](02)[/bold white]: 前想显示多少金币按回车             [bold red]10K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](03)[/bold white]: 156成就解锁皇冠                    [bold red]30K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](04)[/bold white]: 更改ID                            [bold red]30K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](05)[/bold white]: 更改长昵称                         [bold red]5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](06)[/bold white]: 更改彩虹色长昵称                   [bold red]5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](07)[/bold white]: 车牌号码                           [bold red]2K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](08)[/bold white]: 删除账号                           [bold red]免费[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](09)[/bold white]: 注册账号                           [bold red]免费[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](10)[/bold white]: 删除好友                           [bold red]1K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](11)[/bold white]: 解锁付费车辆                       [bold red]5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](12)[/bold white]: 解锁所有车辆                       [bold red]10K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](13)[/bold white]: 解锁所有警笛                       [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](14)[/bold white]: 解锁W16引擎                        [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](15)[/bold white]: 解解锁所有喇叭                      [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](16)[/bold white]: 解锁发动机无伤                      [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](17)[/bold white]: 解锁无线燃料                        [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](18)[/bold white]: 解锁付费别墅                        [bold red]4K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](19)[/bold white]: 解锁烟雾                           [bold red]4K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](20)[/bold white]: 解锁车轮                           [bold red]4K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](21)[/bold white]: 解锁所有动画                        [bold red]2K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](22)[/bold white]: 解锁男性服装                        [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](23)[/bold white]: 解锁女性服装                        [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](24)[/bold white]: 改变比赛胜利场数                    [bold red]10K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](25)[/bold white]: 改变比赛失败场数                    [bold red]10K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](26)[/bold white]: 克隆账号                            [bold red]50K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](27)[/bold white]: 修改车辆马力                        [bold red]5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](28)[/bold white]: 自定义轮胎角度                       [bold red]5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](29)[/bold white]: 自定义轮胎磨损                       [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](30)[/bold white]: 自定义车辆里程                       [bold red]3K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](31)[/bold white]: 自定义车辆刹车                       [bold red]2K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](32)[/bold white]: 移除前后险杠                         [bold red]5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](33)[/bold white]: 移除前保险杠                         [bold red]5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](34)[/bold white]: 强改账户密码                         [bold red]10K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](35)[/bold white]: 强该账户邮箱                         [bold red]10K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](36)[/bold white]: 自定义车辆尾翼                       [bold red]10K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](37)[/bold white]: 自定义车身套件                       [bold red]10K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](38)[/bold white]: 解锁高级车轮                         [bold red]5K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](39)[/bold white]: 解锁皇冠车                           [bold red]10K[/bold red][/bold yellow]")
-            console.print("[bold yellow][bold white](0) [/bold white]: 退出工具箱                           [/bold yellow]")
-            
-            console.print("[bold red]===============[bold white][ 𝐂𝐏𝐌 ][/bold white]===============[/bold red]")
-            
-            service = IntPrompt.ask(f"[bold][?] Select a Service [red][1-{choices[-1]} or 0][/red][/bold]", choices=choices, show_choices=False)
-            
-            console.print("[bold red]===============[bold white][ 𝐂𝐏𝐌 ][/bold white]===============[/bold red]")
-            
+            banner(console) # Redisplay banner
+
+            if not load_player_data(cpm, console):
+                console.print("[bold yellow]无法继续操作，请尝试重新登录或检查账号状态。[/bold yellow]")
+                sleep(3)
+                break
+
+            load_key_data(cpm, console)
+            load_client_details(console) # Displays location and menu title
+
+            # Define menu options data
+            menu_options_data = [
+                ("01", "修改绿钞数量 (上限 5亿)", "消耗: 1K 点数"),
+                ("02", "修改金币数量 (上限 50万)", "消耗: 10K 点数"),
+                ("03", "解锁皇冠成就 (156 成就)", "消耗: 30K 点数"),
+                ("04", "更改玩家 ID", "消耗: 30K 点数"),
+                ("05", "更改普通昵称", "消耗: 5K 点数"),
+                ("06", "更改彩虹渐变昵称", "消耗: 5K 点数"),
+                ("07", "解锁自定义车牌", "消耗: 2K 点数"),
+                ("08", "删除当前账号 (操作无法撤销!)", "免费"),
+                ("09", "注册新账号", "免费"),
+                ("10", "清空好友列表", "消耗: 1K 点数"),
+                ("11", "解锁所有付费车辆", "消耗: 5K 点数"),
+                ("12", "解锁全部车辆 (包括非付费)", "消耗: 10K 点数"),
+                ("13", "解锁所有车辆警笛", "消耗: 3K 点数"),
+                ("14", "解锁 W16 引擎", "消耗: 3K 点数"),
+                ("15", "解锁所有喇叭", "消耗: 3K 点数"),
+                ("16", "解锁引擎无损伤", "消耗: 3K 点数"),
+                ("17", "解锁无限燃料", "消耗: 3K 点数"),
+                ("18", "解锁所有付费房屋", "消耗: 4K 点数"),
+                ("19", "解锁轮胎烟雾", "消耗: 4K 点数"),
+                ("20", "解锁所有普通车轮", "消耗: 4K 点数"),
+                ("21", "解锁所有人物动作 (动画)", "消耗: 2K 点数"),
+                ("22", "解锁所有男性服装", "消耗: 3K 点数"),
+                ("23", "解锁所有女性服装", "消耗: 3K 点数"),
+                ("24", "修改比赛胜利场数", "消耗: 10K 点数"),
+                ("25", "修改比赛失败场数", "消耗: 10K 点数"),
+                ("26", "克隆账号数据到另一账号", "消耗: 50K 点数"),
+                ("27", "修改车辆马力/扭矩 (指定车辆)", "消耗: 5K 点数"),
+                ("28", "自定义轮胎转向角度 (指定车辆)", "消耗: 5K 点数"),
+                ("29", "自定义轮胎磨损度 (指定车辆)", "消耗: 3K 点数"),
+                ("30", "自定义车辆行驶里程 (指定车辆)", "消耗: 3K 点数"),
+                ("31", "自定义车辆刹车性能 (指定车辆)", "消耗: 2K 点数"),
+                ("32", "移除车辆后保险杠 (指定车辆)", "消耗: 5K 点数"),
+                ("33", "移除车辆前保险杠 (指定车辆)", "消耗: 5K 点数"),
+                ("34", "强制修改当前账号密码", "消耗: 10K 点数"),
+                ("35", "强制修改当前账号邮箱", "消耗: 10K 点数"),
+                ("36", "自定义车辆尾翼 (指定车辆)", "消耗: 10K 点数"),
+                ("37", "自定义车身套件 (指定车辆)", "消耗: 10K 点数"),
+                ("38", "解锁高级/付费车轮", "消耗: 5K 点数"),
+                ("39", "解锁皇冠图标车辆 (例如丰田皇冠)", "消耗: 10K 点数"),
+                ("0", "退出工具箱", ""), # Exit option
+            ]
+
+            # --- Display menu options using Table for alignment ---
+            # Create a Table instance. Use padding for space between columns.
+            # Removed expand=True and relied on padding and content width
+            menu_table = Table(show_header=False, box=None, padding=(0, 3)) # Increased padding slightly to 3
+
+            # Add columns: one for item text, one for cost (right justified)
+            # Let left column take space with ratio=1, right column sizes to content + padding
+            menu_table.add_column(justify="left", ratio=1) # Left column takes available space
+            menu_table.add_column(justify="right") # Right column sizes to content + padding
+
+
+            # Add rows to the table
+            for num, desc, cost in menu_options_data:
+                # Create the left cell content (Number + Gradient Description)
+                left_cell_content = Text()
+                left_cell_content.append(f"({num}) ", style="bold white")
+                # Apply random gradient to the description text using the rich text function
+                gradient_desc = random_gradient_text_line_rich(desc)
+                left_cell_content.append(gradient_desc)
+
+                # Create the right cell content (Cost)
+                right_cell_content = Text()
+                if cost:
+                     # The cost string already includes "消耗: "
+                     right_cell_content.append(cost, style="bold red")
+
+                # Add the row to the table
+                menu_table.add_row(left_cell_content, right_cell_content)
+
+            # Print the table
+            console.print(menu_table)
+
+            # --- Menu options end ---
+
+            # Use random gradient separator for "CPM 工具箱"
+            random_gradient_separator("CPM 工具箱", console, separator_char='=')
+
+            # Get user choice
+            # Choices explicitly listed from 0 to 39 as in CyloTool.py
+            choices = [str(i) for i in range(0, 40)]
+            service = IntPrompt.ask(f"[bold][?] 请选择服务项目 [red][1-39 或 0 退出][/red][/bold]", choices=choices, show_choices=False, console=console)
+
+            random_gradient_separator("操作执行", console, separator_char='=')
+
+            # --- Perform actions based on user choice ---
+            operation_successful = False
+            exit_tool = False
+
             if service == 0: # Exit
-                console.print("[bold white] Thank You for using my tool[/bold white]")
-            elif service == 1: # Increase Money
-                console.print("[bold yellow][bold white][?][/bold white] Insert how much money do you want[/bold yellow]")
-                amount = IntPrompt.ask("[?] Amount")
-                console.print("[%] Saving your data: ", end=None)
-                if amount > 0 and amount <= 500000000:
+                console.print("[bold white] 感谢您使用本工具！再见！[/bold white]")
+                exit_tool = True
+                operation_successful = True
+
+            elif service == 1: # Modify Money
+                console.print("[bold yellow][?] 请输入您想要的绿钞数量 (最大 500,000,000)[/bold yellow]")
+                amount = IntPrompt.ask("[?] 数量", console=console)
+                console.print("[%] 正在保存数据...", end="")
+                if 0 < amount <= 500000000:
+                    # Call as in CyloTool.py
                     if cpm.set_player_money(amount):
-                        console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                        if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                        else: continue
+                        print("[bold green]成功 (✔)[bold green]")
+                        operation_successful = True
                     else:
-                        console.print("[bold red]FAILED (✘)[/bold red]")
-                        console.print("[bold red]please try again later! (✘)[/bold red]")
-                        sleep(2)
-                        continue
+                        # Detailed error messages from JBCGJX.py
+                        console.print("[bold red]失败 (✘)[bold red]")
+                        console.print("[bold red]   操作失败，可能是点数不足或服务器问题，请稍后再试。[/bold red]")
                 else:
-                    console.print("[bold red]FAILED (✘)[/bold red]")
-                    console.print("[bold red]please use valid values! (✘)[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 2:  # Increase Coins
-                console.print("[bold yellow][bold white][?][/bold white] Insert how much coins do you want[/bold yellow]")
-                amount = IntPrompt.ask("[?] Amount")
-                print("[ % ] Saving your data: ", end="")
-                if amount > 0 and amount <= 500000:
+                    # Invalid input messages from JBCGJX.py
+                    console.print("[bold red]输入无效 (✘)[bold red]")
+                    console.print("[bold red]   请输入 1 到 500,000,000 之间的数字。[/bold red]")
+
+            elif service == 2:  # Modify Coins
+                console.print("[bold yellow][?] 请输入您想要的金币数量 (最大 500,000)[/bold yellow]")
+                amount = IntPrompt.ask("[?] 数量", console=console)
+                console.print("[%] 正在保存数据...", end="")
+                if 0 < amount <= 500000:
+                    # Call as in CyloTool.py
                     if cpm.set_player_coins(amount):
-                        console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                        console.print("[bold green]======================================[/bold green]")
-                        answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                        if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                        else: continue
+                        print("[bold green]成功 (✔)[bold green]")
+                        operation_successful = True
                     else:
-                        console.print("[bold red]FAILED[/bold red]")
-                        console.print("[bold red]Please Try Again[/bold red]")
-                        sleep(2)
-                        continue
+                        # Detailed error messages from JBCGJX.py
+                        console.print("[bold red]失败 (✘)[bold red]")
+                        console.print("[bold red]   操作失败，可能是点数不足或服务器问题，请稍后再试。[/bold red]")
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold yellow] 'Please use valid values[/bold yellow]")
-                    sleep(2)
-                    continue
-            elif service == 3: # King Rank
-                console.print("[bold red][!] Note:[/bold red]: if the king rank doesn't appear in game, close it and open few times.", end=None)
-                console.print("[bold red][!] Note:[/bold red]: please don't do King Rank on same account twice.", end=None)
+                    # Invalid input messages from JBCGJX.py
+                    console.print("[bold red]输入无效 (✘)[bold red]")
+                    console.print("[bold red]   请输入 1 到 500,000 之间的数字。[/bold red]")
+
+            elif service == 3: # Unlock Crown Achievement
+                # Keep JBCGJX.py's notes
+                console.print("[bold red][!] 提示:[/bold red] 如果游戏内未立即显示皇冠，请尝试重新登录游戏几次.")
+                console.print("[bold red][!] 提示:[/bold red] 请勿对同一个账号重复执行此操作.")
                 sleep(2)
-                console.print("[%] Giving you a King Rank: ", end=None)
+                console.print("[%] 正在解锁皇冠成就...", end="")
+                # Call as in CyloTool.py
                 if cpm.set_player_rank():
-                    console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
-                    console.print("[bold yellow] '======================================[/bold yellow]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
+                    print("[bold green]成功 (✔)[bold green]")
+                    operation_successful = True
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 4: # Change ID
-                console.print("[bold yellow] '[?] Enter your new ID[/bold yellow]")
-                new_id = Prompt.ask("[?] ID")
-                console.print("[%] Saving your data: ", end=None)
-                if len(new_id) >= 0 and len(new_id) <= 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999 and (' ' in new_id) == False:
+                    # Detailed error messages from JBCGJX.py
+                    console.print("[bold red]失败 (✘)[bold red]")
+                    console.print("[bold red]   操作失败，可能是点数不足或服务器问题。[/bold red]")
+
+            elif service == 4: # Change Player ID
+                console.print("[bold yellow][?] 请输入您的新 ID (只能包含字母和数字，不能有空格)[/bold yellow]")
+                # Use prompt_valid_value with console=console as in JBCGJX.py
+                new_id = prompt_valid_value("[?] 新 ID", "ID", console)
+                console.print("[%] 正在保存数据...", end="")
+                # Call as in CyloTool.py, using upper()
+                # Keep JBCGJX.py's alnum check for stricter validation
+                if new_id and new_id.isalnum():
                     if cpm.set_player_localid(new_id.upper()):
-                        console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
-                        console.print("[bold yellow] '======================================[/bold yellow]")
-                        answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                        if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                        else: continue
+                        print("[bold green]成功 (✔)[bold green]")
+                        operation_successful = True
                     else:
-                        console.print("[bold red]FAILED[/bold red]")
-                        console.print("[bold red]Please Try Again[/bold red]")
-                        sleep(2)
-                        continue
+                        # Detailed error messages from JBCGJX.py
+                        console.print("[bold red]失败 (✘)[bold red]")
+                        console.print("[bold red]   操作失败，可能是 ID 已被使用、点数不足或服务器问题。[/bold red]")
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold yellow] 'Please use valid ID[/bold yellow]")
-                    sleep(2)
-                    continue
-            elif service == 5: # Change Name
-                console.print("[bold yellow] '[?] Enter your new Name[/bold yellow]")
-                new_name = Prompt.ask("[?] Name")
-                console.print("[%] Saving your data: ", end=None)
-                if len(new_name) >= 0 and len(new_name) <= 999999999:
+                    # Invalid input messages from JBCGJX.py
+                    console.print("[bold red]输入无效 (✘)[bold red]")
+                    console.print("[bold red]   ID 只能包含字母和数字，且不能为空。[/bold red]")
+
+            elif service == 5: # Change Normal Name
+                console.print("[bold yellow][?] 请输入您的新昵称[/bold yellow]")
+                # Use prompt_valid_value with console=console as in JBCGJX.py
+                new_name = prompt_valid_value("[?] 新昵称", "昵称", console)
+                console.print("[%] 正在保存数据...", end="")
+                # Call as in CyloTool.py
+                # Keep JBCGJX.py's basic check
+                if new_name:
                     if cpm.set_player_name(new_name):
-                        console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
-                        console.print("[bold yellow] '======================================[/bold yellow]")
-                        answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                        if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                        else: continue
+                        print("[bold green]成功 (✔)[bold green]")
+                        operation_successful = True
                     else:
-                        console.print("[bold red]FAILED[/bold red]")
-                        console.print("[bold red]Please Try Again[/bold red]")
-                        sleep(2)
-                        continue
+                        # Detailed error messages from JBCGJX.py
+                        console.print("[bold red]失败 (✘)[bold red]")
+                        console.print("[bold red]   操作失败，可能是昵称不符合规则、点数不足或服务器问题。[/bold red]")
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold yellow] 'Please use valid values[/bold yellow]")
-                    sleep(2)
-                    continue
-            elif service == 6: # Change Name Rainbow
-                console.print("[bold yellow] '[?] Enter your new Rainbow Name[/bold yellow]")
-                new_name = Prompt.ask("[?] Name")
-                console.print("[%] Saving your data: ", end=None)
-                if len(new_name) >= 0 and len(new_name) <= 999999999:
-                    if cpm.set_player_name(rainbow_gradient_string(new_name)):
-                        console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
-                        console.print("[bold yellow] '======================================[/bold yellow]")
-                        answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                        if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                        else: continue
+                     # Invalid input messages from JBCGJX.py
+                     console.print("[bold red]输入无效 (✘)[bold red]")
+                     console.print("[bold red]   昵称不能为空。[/bold red]")
+
+            elif service == 6: # Change Rainbow Gradient Name
+                console.print("[bold yellow][?] 请输入您想设置为彩虹渐变色的昵称[/bold yellow]")
+                # Use prompt_valid_value with console=console as in JBCGJX.py
+                new_name_plain = prompt_valid_value("[?] 基础昵称", "基础昵称", console)
+                console.print("[%] 正在生成渐变色并保存数据...", end="")
+                if new_name_plain:
+                    # Generate the [RRGGBB]text format string, similar to CyloTool.py
+                    rainbow_name_str = rainbow_gradient_string_cpm_format(new_name_plain)
+                    # Call cpm method with the formatted string
+                    if cpm.set_player_name(rainbow_name_str):
+                        print("[bold green]成功 (✔)[bold green]")
+                        # Keep JBCGJX.py's note
+                        console.print("[dim]   (请注意，游戏内显示效果取决于游戏是否支持 Rich/BBCode 格式)[/dim]")
+                        operation_successful = True
                     else:
-                        console.print("[bold red]FAILED[/bold red]")
-                        console.print("[bold red]Please Try Again[/bold red]")
-                        sleep(2)
-                        continue
+                        # Detailed error messages from JBCGJX.py
+                        console.print("[bold red]失败 (✘)[bold red]")
+                        console.print("[bold red]   操作失败，可能是昵称过长、点数不足或服务器问题。[/bold red]")
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold yellow] 'Please use valid values[/bold yellow]")
-                    sleep(2)
-                    continue
-            elif service == 7: # Number Plates
-                console.print("[%] Giving you a Number Plates: ", end=None)
+                    # Invalid input messages from JBCGJX.py
+                    console.print("[bold red]输入无效 (✘)[bold red]")
+                    console.print("[bold red]   基础昵称不能为空。[/bold red]")
+
+            elif service == 7: # Unlock Custom Plate
+                console.print("[%] 正在解锁自定义车牌...", end="")
+                # Call as in CyloTool.py
                 if cpm.set_player_plates():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
+                    print("[bold green]成功 (✔)[bold green]")
+                    operation_successful = True
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 8: # Account Delete
-                console.print("[bold yellow] '[!] After deleting your account there is no going back !![/bold yellow]")
-                answ = Prompt.ask("[?] Do You want to Delete this Account ?!", choices=["y", "n"], default="n")
+                    # Detailed error messages from JBCGJX.py
+                    console.print("[bold red]失败 (✘)[bold red]")
+                    console.print("[bold red]   操作失败，可能是点数不足或服务器问题。[/bold red]")
+
+            elif service == 8: # Delete Account
+                # Keep JBCGJX.py's warning and prompt style
+                console.print("[bold red][!] 警告：删除账号是永久性操作，无法撤销！所有数据将丢失！[/bold red]")
+                answ = Prompt.ask("[bold red][?] 您确定要删除当前登录的账号吗？[/bold red]", choices=["y", "n"], default="n", console=console)
                 if answ == "y":
+                    console.print("[%] 正在删除账号...", end="")
+                    # Call delete method as in CyloTool.py (no return check in CyloTool.py)
                     cpm.delete()
-                    console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
-                    console.print("[bold yellow] '======================================[/bold yellow]")
-                    console.print("[bold yellow] f'Thank You for using our tool, please join our telegram channe: @{__CHANNEL_USERNAME__}[/bold yellow]")
-                else: continue
-            elif service == 9: # Account Register
-                console.print("[bold yellow] '[!] Registring new Account[/bold yellow]")
-                acc2_email = prompt_valid_value("[?] Account Email", "Email", password=False)
-                acc2_password = prompt_valid_value("[?] Account Password", "Password", password=False)
-                console.print("[%] Creating new Account: ", end=None)
+                    # Keep JBCGJX.py's success message and exit logic
+                    print("[bold green]账号删除指令已发送 (✔)[bold green]")
+                    console.print("[bold yellow]   请重新启动工具或登录其他账号。[/bold yellow]")
+                    exit_tool = True
+                    operation_successful = True
+                else:
+                    # Keep JBCGJX.py's cancel message
+                    console.print("[bold yellow]   操作已取消。[/bold yellow]")
+                    operation_successful = False
+
+            elif service == 9: # Register New Account
+                console.print("[bold yellow][!] 正在注册新账号[/bold yellow]")
+                # Use prompt_valid_value with console=console and password=True as in JBCGJX.py
+                acc2_email = prompt_valid_value("[?] 新账号邮箱", "邮箱", console)
+                acc2_password = prompt_valid_value("[?] 新账号密码", "密码", console, password=True)
+                console.print("[%] 正在创建新账号...", end="")
+                # Call register method as in CyloTool.py
                 status = cpm.register(acc2_email, acc2_password)
+                # Keep JBCGJX.py's detailed result handling and messages
                 if status == 0:
-                    console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
-                    console.print("[bold yellow] '======================================[/bold yellow]")
-                    console.print("[bold yellow] f'INFO: In order to tweak this account with Telmun[/bold yellow]")
-                    console.print("[bold yellow] 'you most sign-in to the game using this account[/bold yellow]")
-                    sleep(2)
-                    continue
+                    print("[bold green]成功 (✔)[bold green]")
+                    console.print("[bold yellow]   提示：新账号需要先在游戏内登录一次才能使用本工具修改数据。[/bold yellow]")
+                    operation_successful = True
                 elif status == 105:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold yellow] 'This email is already exists ![/bold yellow]")
-                    sleep(2)
-                    continue
+                    console.print("[bold red]注册失败 (✘)[bold red]")
+                    console.print("[bold yellow]   原因：该邮箱已被注册。[/bold yellow]")
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 10: # Delete Friends
-                console.print("[%] Deleting your Friends: ", end=None)
+                    console.print("[bold red]失败 (✘)[bold red]")
+                    console.print(f"[bold red]   未知错误代码: {status}，请稍后再试。[/bold red]")
+
+
+            elif service == 10: # Clear Friends List
+                console.print("[%] 正在清空好友列表...", end="")
+                # Call as in CyloTool.py
                 if cpm.delete_player_friends():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
+                    print("[bold green]成功 (✔)[bold green]")
+                    operation_successful = True
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 11: # Unlock All Paid Cars
-                console.print("[!] Note: this function takes a while to complete, please don't cancel.", end=None)
-                console.print("[%] Unlocking All Paid Cars: ", end=None)
-                if cpm.unlock_paid_cars():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
+                    # Detailed error messages from JBCGJX.py
+                    console.print("[bold red]失败 (✘)[bold red]")
+                    console.print("[bold red]   操作失败，可能是点数不足或服务器问题。[/bold red]")
+
+            # --- Unlock Actions ---
+            # Kept the organized structure from JBCGJX.py
+            unlock_actions = {
+                11: ("解锁所有付费车辆", cpm.unlock_paid_cars, "[!] 可能需要一些时间，请勿中断。"),
+                12: ("解锁全部车辆 (包括非付费)", cpm.unlock_all_cars, None),
+                13: ("解锁所有车辆警笛", cpm.unlock_all_cars_siren, None),
+                14: ("解锁 W16 引擎", cpm.unlock_w16, None),
+                15: ("解锁所有喇叭", cpm.unlock_horns, None),
+                16: ("解锁引擎无损伤", cpm.disable_engine_damage, None),
+                17: ("解锁无限燃料", cpm.unlimited_fuel, None),
+                18: ("解锁所有付费房屋", cpm.unlock_houses, None),
+                19: ("解锁轮胎烟雾", cpm.unlock_smoke, None),
+                20: ("解锁所有普通车轮", cpm.unlock_wheels, None),
+                21: ("解锁所有人物动作 (动画)", cpm.unlock_animations, None),
+                22: ("解锁所有男性服装", cpm.unlock_equipments_male, None),
+                23: ("解锁所有女性服装", cpm.unlock_equipments_female, None),
+                38: ("解锁高级/付费车轮", cpm.shittin, None),
+                39: ("解锁皇冠图标车辆 (例如丰田皇冠)", cpm.unlock_crown, "[!] 可能需要一些时间，请勿中断。"),
+            }
+
+            if service in unlock_actions:
+                action_name, action_func, note = unlock_actions[service]
+                if note:
+                    console.print(f"[bold yellow]{note}[/bold yellow]")
+                console.print(f"[%]正在 {action_name}...", end="")
+                # Call action function as in CyloTool.py
+                if action_func():
+                    print("[bold green]成功 (✔)[bold green]")
+                    operation_successful = True
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 12: # Unlock All Cars
-                console.print("[%] Unlocking All Cars: ", end=None)
-                if cpm.unlock_all_cars():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 13: # Unlock All Cars Siren
-                console.print("[%] Unlocking All Cars Siren: ", end=None)
-                if cpm.unlock_all_cars_siren():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 14: # Unlock w16 Engine
-                console.print("[%] Unlocking w16 Engine: ", end=None)
-                if cpm.unlock_w16():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 15: # Unlock All Horns
-                console.print("[%] Unlocking All Horns: ", end=None)
-                if cpm.unlock_horns():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 16: # Disable Engine Damage
-                console.print("[%] Unlocking Disable Damage: ", end=None)
-                if cpm.disable_engine_damage():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 17: # Unlimited Fuel
-                console.print("[%] Unlocking Unlimited Fuel: ", end=None)
-                if cpm.unlimited_fuel():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 18: # Unlock House 3
-                console.print("[%] Unlocking House 3: ", end=None)
-                if cpm.unlock_houses():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 19: # Unlock Smoke
-                console.print("[%] Unlocking Smoke: ", end=None)
-                if cpm.unlock_smoke():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 20: # Unlock Smoke
-                console.print("[%] Unlocking Wheels: ", end=None)
-                if cpm.unlock_wheels():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(8)
-                    continue
-            elif service == 21: # Unlock Smoke
-                console.print("[%] Unlocking Animations: ", end=None)
-                if cpm.unlock_animations():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 22: # Unlock Smoke
-                console.print("[%] Unlocking Equipaments Male: ", end=None)
-                if cpm.unlock_equipments_male():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 23: # Unlock Smoke
-                console.print("[%] Unlocking Equipaments Female: ", end=None)
-                if cpm.unlock_equipments_female():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 24: # Change Races Wins
-                console.print("[bold yellow] '[!] Insert how much races you win[/bold yellow]")
-                amount = IntPrompt.ask("[?] Amount")
-                console.print("[%] Changing your data: ", end=None)
-                if amount > 0 and amount <= 999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999:
-                    if cpm.set_player_wins(amount):
-                        console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
-                        console.print("[bold yellow] '======================================[/bold yellow]")
-                        answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                        if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                        else: continue
+                    # Detailed error messages from JBCGJX.py
+                    console.print("[bold red]失败 (✘)[bold red]")
+                    console.print("[bold red]   操作失败，可能是点数不足或服务器问题。[/bold red]")
+
+            elif service == 24 or service == 25: # Modify Win/Loss Count
+                field = "胜利" if service == 24 else "失败"
+                set_func = cpm.set_player_wins if service == 24 else cpm.set_player_loses
+                console.print(f"[bold yellow][?] 请输入想设置的比赛{field}场数[/bold yellow]")
+                # Use IntPrompt with console=console
+                amount = IntPrompt.ask("[?] 数量", console=console)
+                console.print(f"[%] 正在修改比赛{field}场数...", end="")
+                # Keep JBCGJX.py's >= 0 check
+                if amount >= 0:
+                    # Call set_func as in CyloTool.py
+                    if set_func(amount):
+                        print("[bold green]成功 (✔)[bold green]")
+                        operation_successful = True
                     else:
-                        console.print("[bold red]FAILED[/bold red]")
-                        console.print("[bold red]Please Try Again[/bold red]")
-                        sleep(2)
-                        continue
+                        # Detailed error messages from JBCGJX.py
+                        console.print("[bold red]失败 (✘)[bold red]")
+                        console.print("[bold red]   操作失败，可能是点数不足或服务器问题。[/bold red]")
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold yellow] '[!] Please use valid values[/bold yellow]")
-                    sleep(2)
-                    continue
-            elif service == 25: # Change Races Loses
-                console.print("[bold yellow] '[!] Insert how much races you lose[/bold yellow]")
-                amount = IntPrompt.ask("[?] Amount")
-                console.print("[%] Changing your data: ", end=None)
-                if amount > 0 and amount <= 999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999:
-                    if cpm.set_player_loses(amount):
-                        console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
-                        console.print("[bold yellow] '======================================[/bold yellow]")
-                        answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                        if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                        else: continue
-                    else:
-                        console.print("[bold red]FAILED[/bold red]")
-                        console.print("[bold yellow] '[!] Please use valid values[/bold yellow]")
-                        sleep(2)
-                        continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold yellow] '[!] Please use valid values[/bold yellow]")
-                    sleep(2)
-                    continue
+                    # Invalid input messages from JBCGJX.py
+                    console.print("[bold red]输入无效 (✘)[bold red]")
+                    console.print("[bold red]   场数不能为负数。[/bold red]")
+
             elif service == 26: # Clone Account
-                console.print("[bold yellow] '[!] Please Enter Account Detalis[/bold yellow]")
-                to_email = prompt_valid_value("[?] Account Email", "Email", password=False)
-                to_password = prompt_valid_value("[?] Account Password", "Password", password=False)
-                console.print("[%] Cloning your account: ", end=None)
+                console.print("[bold yellow][!] 请输入[接收]数据的目标账号信息[/bold yellow]")
+                # Use prompt_valid_value with console=console and password=True
+                to_email = prompt_valid_value("[?] 目标账号邮箱", "邮箱", console)
+                to_password = prompt_valid_value("[?] 目标账号密码", "密码", console, password=True)
+                console.print("[%] 正在将当前账号数据克隆到目标账号...", end="")
+                # Call account_clone as in CyloTool.py
                 if cpm.account_clone(to_email, to_password):
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:     
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold yellow] '[!] THAT RECIEVER ACCOUNT IS GMAIL PASSWORD IS NOT VALID OR THAT ACCOUNT IS NOT REGISTERED[/bold yellow]")
-                    sleep(2)
-                    continue
-            elif service == 27:
-                console.print("[bold yellow][!] Note[/bold yellow]: original speed can not be restored!.")
-                console.print("[bold yellow][!] Enter Car Details.[/bold yellow]")
-                car_id = IntPrompt.ask("[bold][?] Car Id[/bold]")
-                new_hp = IntPrompt.ask("[bold][?]Enter New HP[/bold]")
-                new_inner_hp = IntPrompt.ask("[bold][?]Enter New Inner Hp[/bold]")
-                new_nm = IntPrompt.ask("[bold][?]Enter New NM[/bold]")
-                new_torque = IntPrompt.ask("[bold][?]Enter New Torque[/bold]")
-                console.print("[bold yellow][%] Hacking Car Speed[/bold yellow]:",end=None)
-                if cpm.hack_car_speed(car_id, new_hp, new_inner_hp, new_nm, new_torque):
-                    console.print("[bold green]SUCCESFUL (✔)[/bold green]")
-                    console.print("================================")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
+                     print("[bold green]成功 (✔)[bold green]")
+                     # Keep JBCGJX.py's note
+                     console.print("[bold yellow]   提示：目标账号的原有数据可能已被覆盖。[/bold yellow]")
+                     operation_successful = True
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold yellow] '[!] Please use valid values[/bold yellow]")
-                    sleep(2)
-                    continue
-            elif service == 28: # ANGLE
-                console.print("[bold yellow] '[!] ENTER CAR DETALIS[/bold yellow]")
-                car_id = IntPrompt.ask("[bold][?] CAR ID[/bold]")
-                console.print("[bold yellow] '[!] ENTER STEERING ANGLE[/bold yellow]")
-                custom = IntPrompt.ask("[red][?]﻿ENTER THE AMOUNT OF ANGLE YOU WANT[/red]")                
-                console.print("[red][%] HACKING CAR ANGLE[/red]: ", end=None)
-                if cpm.max_max1(car_id, custom):
-                    console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
-                    answ = Prompt.ask("[red][?] DO YOU WANT TO EXIT[/red] ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
+                     # Detailed error messages from JBCGJX.py
+                     console.print("[bold red]失败 (✘)[bold red]")
+                     console.print("[bold red]   原因：目标账号的邮箱/密码无效，或目标账号未注册，或点数不足。[/bold red]")
+
+            elif service == 27: # Modify Car HP/Torque
+                 # Keep JBCGJX.py's warnings and prompts
+                 console.print("[bold yellow][!] 警告：修改后可能无法恢复原始数值！[/bold yellow]")
+                 console.print("[bold yellow][?] 请输入要修改的车辆信息[/bold yellow]")
+                 # Use IntPrompt with console=console
+                 car_id = IntPrompt.ask("[bold][?] 车辆 ID (数字序号)[/bold]", console=console)
+                 new_hp = IntPrompt.ask("[bold][?] 新马力 (HP)[/bold]", console=console)
+                 new_inner_hp = IntPrompt.ask("[bold][?] 新内部马力 (Inner HP)[/bold]", console=console)
+                 new_nm = IntPrompt.ask("[bold][?] 新牛米 (NM)[bold]", console=console)
+                 new_torque = IntPrompt.ask("[bold][?] 新扭矩 (Torque)[bold]", console=console)
+                 console.print("[%] 正在修改车辆性能...",end="")
+                 # Keep JBCGJX.py's >= 0 check
+                 if all(val >= 0 for val in [car_id, new_hp, new_inner_hp, new_nm, new_torque]):
+                     # Call hack_car_speed as in CyloTool.py
+                     if cpm.hack_car_speed(car_id, new_hp, new_inner_hp, new_nm, new_torque):
+                         print("[bold green]成功 (✔)[bold green]")
+                         operation_successful = True
+                     else:
+                         # Detailed error messages from JBCGJX.py
+                         console.print("[bold red]失败 (✘)[bold red]")
+                         console.print("[bold red]   操作失败，请检查车辆 ID 是否正确、点数是否足够或数值是否在合理范围。[/bold red]")
+                 else:
+                      # Invalid input messages from JBCGJX.py
+                      console.print("[bold red]输入无效 (✘)[bold red]")
+                      console.print("[bold red]   车辆 ID 和性能数值不能为负数。[/bold red]")
+
+            # --- Custom Car Attributes ---
+            # Kept the organized structure from JBCGJX.py
+            car_custom_actions = {
+                28: ("轮胎转向角度", cpm.max_max1, "[?] 请输入新的转向角度值"),
+                29: ("轮胎磨损度 (%)", cpm.max_max2, "[?] 请输入新的磨损百分比"),
+                30: ("车辆行驶里程", cpm.millage_car, "[?] 请输入新的里程数"),
+                31: ("车辆刹车性能", cpm.brake_car, "[?] 请输入新的刹车性能值"),
+                36: ("车辆尾翼 ID", cpm.telmunnongodz, "[?] 请输入新的尾翼 ID"),
+                37: ("车身套件 ID", cpm.telmunnongonz, "[?] 请输入新的车身套件 ID"),
+            }
+
+            if service in car_custom_actions:
+                 action_name, action_func, prompt_msg = car_custom_actions[service]
+                 console.print(f"[bold yellow][?] 请输入要修改 {action_name} 的车辆 ID[/bold yellow]")
+                 # Use IntPrompt with console=console
+                 car_id = IntPrompt.ask("[bold][?] 车辆 ID[/bold]", console=console)
+                 console.print(f"[bold yellow]{prompt_msg}[/bold yellow]")
+                 # Use IntPrompt with console=console
+                 custom_value = IntPrompt.ask("[bold][?] 数值[/bold]", console=console)
+                 console.print(f"[%] 正在为车辆 {car_id} 设置 {action_name} 为 {custom_value}...", end="")
+                 # Keep JBCGJX.py's >= 0 check
+                 if car_id >= 0 and custom_value >= 0:
+                     # Call action_func as in CyloTool.py
+                     if action_func(car_id, custom_value):
+                         print("[bold green]成功 (✔)[bold green]")
+                         operation_successful = True
+                     else:
+                         # Detailed error messages from JBCGJX.py
+                         console.print("[bold red]失败 (✘)[bold red]")
+                         console.print("[bold red]   操作失败，请检查车辆 ID 是否正确、点数是否足够或输入值是否有效。[/bold red]")
+                 else:
+                     # Invalid input messages from JBCGJX.py
+                     console.print("[bold red]输入无效 (✘)[bold red]")
+                     console.print("[bold red]   车辆 ID 和自定义数值不能为负数。[/bold red]")
+
+            # --- Remove Bumpers ---
+            elif service == 32 or service == 33:
+                bumper_type = "后" if service == 32 else "前"
+                remove_func = cpm.rear_bumper if service == 32 else cpm.front_bumper
+                console.print(f"[bold yellow][?] 请输入要移除 {bumper_type} 保险杠的车辆 ID[/bold yellow]")
+                # Use IntPrompt with console=console
+                car_id = IntPrompt.ask("[bold][?] 车辆 ID[/bold]", console=console)
+                console.print(f"[%] 正在为车辆 {car_id} 移除 {bumper_type} 保险杠...", end="")
+                # Keep JBCGJX.py's >= 0 check
+                if car_id >= 0:
+                    if remove_func(car_id):
+                        print("[bold green]成功 (✔)[bold green]")
+                        operation_successful = True
+                    else:
+                        # Detailed error messages from JBCGJX.py
+                        console.print("[bold red]失败 (✘)[bold red]")
+                        console.print("[bold red]   操作失败，请检查车辆 ID 是否正确、点数是否足够。[/bold red]")
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 29: # tire
-                console.print("[bold yellow] '[!] ENTER CAR DETALIS[/bold yellow]")
-                car_id = IntPrompt.ask("[bold][?] CAR ID[/bold]")
-                console.print("[bold yellow] '[!] ENTER PERCENTAGE[/bold yellow]")
-                custom = IntPrompt.ask("[pink][?]﻿ENTER PERCENTAGE TIRES U WANT[/pink]")                
-                console.print("[red][%] Setting Percentage [/red]: ", end=None)
-                if cpm.max_max2(car_id, custom):
-                    console.print("[bold yellow] 'SUCCESSFUL[/bold yellow]")
-                    answ = Prompt.ask("[bold green][?] DO YOU WANT TO EXIT[/bold green] ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 30: # Millage
-                console.print("[bold]ENTER CAR DETAILS![/bold]")
-                car_id = IntPrompt.ask("[bold][?] CAR ID[/bold]")
-                console.print("[bold]ENTER NEW MILLAGE![/bold]")
-                custom = IntPrompt.ask("[bold blue][?]﻿ENTER MILLAGE U WANT[/bold blue]")                
-                console.print("[bold red][%] Setting Percentage [/bold red]: ", end=None)
-                if cpm.millage_car(car_id, custom):
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 31: # Brake
-                console.print("[bold]ENTER CAR DETAILS![/bold]")
-                car_id = IntPrompt.ask("[bold][?] CAR ID[/bold]")
-                console.print("[bold]ENTER NEW BRAKE![/bold]")
-                custom = IntPrompt.ask("[bold blue][?]﻿ENTER BRAKE U WANT[/bold blue]")                
-                console.print("[bold red][%] Setting BRAKE [/bold red]: ", end=None)
-                if cpm.brake_car(car_id, custom):
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 32: # Bumper rear
-                console.print("[bold]ENTER CAR DETAILS![/bold]")
-                car_id = IntPrompt.ask("[bold][?] CAR ID[/bold]")                
-                console.print("[bold red][%] Removing Rear Bumper [/bold red]: ", end=None)
-                if cpm.rear_bumper(car_id):
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 33: # Bumper front
-                console.print("[bold]ENTER CAR DETAILS![/bold]")
-                car_id = IntPrompt.ask("[bold][?] CAR ID[/bold]")                
-                console.print("[bold red][%] Removing Front Bumper [/bold red]: ", end=None)
-                if cpm.front_bumper(car_id):
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 75:  # /testin endpoint
-                console.print("[bold]ENTER CUSTOM FLOAT DATA[/bold]")
-                custom = IntPrompt.ask("[bold][?] VALUE (e.g. 1 or 0)[/bold]")     # This is the value
-                console.print(f"[bold red][%] Setting float key... [/bold red]", end=None)
-                if cpm.testin(custom):
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold yellow]FAILED[/bold yellow]")
-                    console.print("[bold yellow]PLEASE TRY AGAIN[/bold yellow]")
-                    sleep(2)
-                    continue
-            elif service == 34:
-                console.print("[bold]Enter New Password![/bold]")
-                new_password = prompt_valid_value("[bold][?] Account New Password[/bold]", "Password", password=False)
-                console.print("[bold red][%] Changing Password [/bold red]: ", end=None)
+                    # Invalid input messages from JBCGJX.py
+                    console.print("[bold red]输入无效 (✘)[bold red]")
+                    console.print("[bold red]   车辆 ID 不能为负数。[/bold red]")
+
+            elif service == 34: # Change Password
+                console.print("[bold yellow][?] 请输入当前账号的新密码[/bold yellow]")
+                # Use prompt_valid_value with console=console and password=True
+                new_password = prompt_valid_value("[bold][?] 新密码[/bold]", "密码", console, password=True)
+                console.print("[%] 正在修改密码...", end="")
+                # Call change_password as in CyloTool.py
                 if cpm.change_password(new_password):
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white]Thank You for using my tool[/bold white]")
-                    else: continue
+                    print("[bold green]成功 (✔)[bold green]")
+                    # Keep JBCGJX.py's note and exit logic
+                    console.print("[bold yellow]   提示：您的登录令牌已更新，请使用新密码重新登录。[/bold yellow]")
+                    operation_successful = True
+                    exit_tool = True
                 else:
-                    console.print("[bold yellow]FAILED[/bold yellow]")
-                    console.print("[bold yellow]PLEASE TRY AGAIN[/bold yellow]")
-                    sleep(2)
-                    continue
-            elif service == 36: # telmunnongodz
-                console.print("[bold]ENTER CAR DETAILS![/bold]")
-                car_id = IntPrompt.ask("[bold][?] CAR ID[/bold]")
-                console.print("[bold]ENTER SPOILER ID![/bold]")
-                custom = IntPrompt.ask("[bold blue][?]ENTER NEW SPOILER ID[/bold blue]")                
-                console.print("[bold red][%] SAVING YOUR DATA [/bold red]: ", end=None)
-                if cpm.telmunnongodz(car_id, custom):
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
+                    # Detailed error messages from JBCGJX.py
+                    console.print("[bold red]失败 (✘)[bold red]")
+                    console.print("[bold red]   操作失败，可能是点数不足或服务器错误。[/bold red]")
+
+            elif service == 35: # Change Email
+                console.print("[bold yellow][?] 请输入当前账号的新邮箱[/bold yellow]")
+                # Use prompt_valid_value with console=console
+                new_email = prompt_valid_value("[bold][?] 新邮箱[/bold]", "邮箱", console)
+                # Keep JBCGJX.py's basic email format check
+                if '@' in new_email and '.' in new_email.split('@')[-1]:
+                    console.print("[%] 正在修改邮箱...", end="")
+                    # Call change_email as in CyloTool.py
+                    if cpm.change_email(new_email):
+                        print("[bold green]成功 (✔)[bold green]")
+                        operation_successful = True
+                        # Adopt CyloTool.py's logic to break to login loop after changing email
+                        break # Break out of the inner menu loop
+                    else:
+                        # Detailed error messages from JBCGJX.py
+                        console.print("[bold red]失败 (✘)[bold red]")
+                        console.print("[bold red]   操作失败，可能是该邮箱已被注册、点数不足或服务器错误。[/bold red]")
                 else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 37: # telmunnongonz
-                console.print("[bold]ENTER CAR DETAILS![/bold]")
-                car_id = IntPrompt.ask("[bold][?] CAR ID[/bold]")
-                console.print("[bold]ENTER BODYKIT ID![/bold]")
-                custom = IntPrompt.ask("[bold blue][?]INSERT BODYKIT ID[/bold blue]")                
-                console.print("[bold red][%] SAVING YOUR DATA [/bold red]: ", end=None)
-                if cpm.telmunnongonz(car_id, custom):
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 35:
-                console.print("[bold]Enter New Email![/bold]")
-                new_email = prompt_valid_value("[bold][?] Account New Email[/bold]", "Email")
-                console.print("[bold red][%] Changing Email [/bold red]: ", end=None)
-                if cpm.change_email(new_email):
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    answ = Prompt.ask("[bold][?] DO YOU WANT TO EXIT[/bold] ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white]Thank You for using my tool[/bold white]")
-                    else: break
-                else:
-                    console.print("[bold red]FAILED[/bold yellow]")
-                    console.print("[bold red]EMAIL IS ALREADY REGISTERED [/bold red]")
-                    sleep(4)
-            elif service == 38: # SHITTIN
-                console.print("[%] Unlocking Premium Wheels..: ", end=None)
-                if cpm.shittin():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            elif service == 39: # Unlock toyota crown
-                console.print("[!] Note: this function takes a while to complete, please don't cancel.", end=None)
-                console.print("[%] Unlocking Toyota Crown: ", end=None)
-                if cpm.unlock_crown():
-                    console.print("[bold green]SUCCESSFUL (✔)[/bold green]")
-                    console.print("[bold green]======================================[/bold green]")
-                    answ = Prompt.ask("[?] Do You want to Exit ?", choices=["y", "n"], default="n")
-                    if answ == "y": console.print("[bold white] Thank You for using my tool[/bold white]")
-                    else: continue
-                else:
-                    console.print("[bold red]FAILED[/bold red]")
-                    console.print("[bold red]Please Try Again[/bold red]")
-                    sleep(2)
-                    continue
-            else:
-                continue
-            break
-        break              
+                     # Invalid input messages from JBCGJX.py
+                     console.print("[bold red]输入无效 (✘)[bold red]")
+                     console.print("[bold red]   请输入有效的邮箱地址。[/bold red]")
+
+
+            # Keep JBCGJX.py's success handling and prompt to return to menu or exit
+            if operation_successful and not exit_tool:
+                 console.print("[bold green]======================================[/bold green]")
+                 answ = Prompt.ask("[?] 操作完成。是否返回主菜单？(y/n, 默认 y)", choices=["y", "n"], default="y", console=console)
+                 if answ == "n":
+                     console.print("[bold white] 感谢您使用本工具！再见！[/bold white]")
+                     exit_tool = True
+                 # else: continue (default or input y, loop continues automatically)
+            # Keep JBCGJX.py's failure handling for specific services
+            elif not operation_successful and service not in [0, 8, 9]:
+                console.print("[bold red]======================================[/bold red]")
+                console.print("[bold yellow]   请检查错误信息，按回车键返回主菜单...[/bold yellow]")
+                input()
+
+            # Keep JBCGJX.py's exit loop break
+            if exit_tool:
+                 break # Break out of the inner menu loop
+
+        # This break is reached if exit_tool is True (from service 0, 8, 34, or user choosing 'n' after successful operation)
+        # or if changing email (service 35) was successful.
+        if exit_tool:
+            break # Break out of the outer login loop to end the script.
+        # If we broke out of the inner loop for service 35, we fall through here
+        # and continue the outer loop, leading to the login screen again.
