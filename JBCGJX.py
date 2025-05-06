@@ -123,7 +123,7 @@ def gradient_text_multi_line(text, colors):
     return colorful_text
 
 # 分隔符函数，使用指定的粉紫渐变和符号
-def gradient_separator(title, console, separator_char='★', total_width=80, start_color=PINK, end_color=PURPLE):
+def gradient_separator(title, console, separator_char='★', total_width=40, start_color=PINK, end_color=PURPLE):
     """打印一个固定宽度的分隔线，带居中标题和指定渐变颜色"""
     title_text_str = f" {title} " if title else "" # 如果有标题，则在标题前后添加空格
     title_width = len(title_text_str)
@@ -296,8 +296,8 @@ if __name__ == "__main__":
         gradient_separator("账号登录", console, separator_char=SEPARATOR_CHAR, start_color=PINK, end_color=PURPLE) # 提示前的分隔符
 
         # 使用 random_gradient_text_line_rich 为提示语应用随机渐变色
-        acc_email = prompt_valid_value("请输入账号邮箱:", "邮箱", console, password=False)
-        acc_password = prompt_valid_value("请输入账号密码:", "密码", console, password=False) # password=False 使输入可见
+        acc_email = prompt_valid_value("请输入账号邮箱", "邮箱", console, password=False)
+        acc_password = prompt_valid_value("请输入账号密码", "密码", console, password=False) # password=False 使输入可见
         acc_access_key = prompt_valid_value("请输入访问密钥 (Access Key):", "Access Key", console, password=False) # password=False 使输入可见
 
 
@@ -382,8 +382,8 @@ if __name__ == "__main__":
                 ("31", "自定义车辆刹车性能 (指定车辆)", "消耗: 2K 点数"),
                 ("32", "移除车辆后保险杠 (指定车辆)", "消耗: 5K 点数"),
                 ("33", "移除车辆前保险杠 (指定车辆)", "消耗: 5K 点数"),
-                ("34", "强制修改当前账号密码", "消耗: 10K 点数"),
-                ("35", "强制修改当前账号邮箱", "消耗: 10K 点数"),
+                ("34", "强制修改当前账号密码", "消耗: 100K 点数"),
+                ("35", "强制修改当前账号邮箱", "消耗: 100K 点数"),
                 ("36", "自定义车辆尾翼 (指定车辆)", "消耗: 10K 点数"),
                 ("37", "自定义车身套件 (指定车辆)", "消耗: 10K 点数"),
                 ("38", "解锁高级/付费车轮", "消耗: 5K 点数"),
