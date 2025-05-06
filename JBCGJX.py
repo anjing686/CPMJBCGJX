@@ -164,7 +164,7 @@ def banner(console):
     # --- ASCII Art End ---
 
     # Updated brand name and left justification (kept from previous modification)
-    brand_name = "季伯常专属工具版本 v1.0"
+    brand_name = "季伯常专属工具版本 v1.1"
     text = Text(brand_name, style="bold black")
     console.print(text, justify="left")
 
@@ -174,7 +174,7 @@ def banner(console):
 
     console.print("[bold yellow]      请在使用本工具前，先在 CPM 游戏中登出账号！[/bold yellow]")
     console.print("[bold red]      严禁分享您的访问密钥 检测到IP波动频繁封禁秘钥！[/bold red]")
-    console.print("[bold red]      快手搜季伯常私信获得工具箱安装教程及使用权！@快手搜季伯常[/bold red]")
+    console.print("[bold red]      快手搜季伯常私信获得工具箱安装教程及使用权！[/bold red]")
     random_gradient_separator("结束提示", console, separator_char='-')
 
 
@@ -193,9 +193,9 @@ def load_player_data(cpm, console):
         # Keeping JBCGJX.py's check for essential keys and carIDnStatus structure
         if all(key in data for key in required_keys) and isinstance(data.get('carIDnStatus'), dict):
             console.print(f"[bold white]   >> 昵称 (Name)   : {data.get('Name', '未定义')}[/bold white]")
-            console.print(f"[bold white]   >> ID (LocalID)  : {data.get('localID', '未定义')}[bold white]")
-            console.print(f"[bold white]   >> 绿钞 (Money)  : {data.get('money', '未定义')}[bold white]")
-            console.print(f"[bold white]   >> 金币 (Coins)  : {data.get('coin', '未定义')}[bold white]")
+            console.print(f"[bold white]   >> ID (LocalID)  : {data.get('localID', '未定义')}[/bold white]")
+            console.print(f"[bold white]   >> 绿钞 (Money)  : {data.get('money', '未定义')}[/bold white]")
+            console.print(f"[bold white]   >> 金币 (Coins)  : {data.get('coin', '未定义')}[/bold white]")
 
             friends_count = len(data.get("FriendsID", []))
             console.print(f"[bold white]   >> 好友数量      : {friends_count}[/bold white]")
@@ -256,7 +256,7 @@ def prompt_valid_value(content, tag, console, password=False):
         # Pass the rich.Text object with gradient to Prompt.ask
         # password parameter controls input hiding
         value = Prompt.ask(gradient_content, password=password, console=console)
-        if not value or value.isspace():
+        if not value or value.isspace(): # Check if value is empty or only spaces
             console.print(f"[bold red]输入错误：{tag} 不能为空或仅包含空格，请重新输入 (✘)[bold red]")
         else:
             return value
@@ -364,10 +364,10 @@ if __name__ == "__main__":
 
             # Define menu options data
             menu_options_data = [
-                ("01", "修改绿钞数量 (上限 5亿)", "消耗: 1K 点数"),
+                ("01", "修改绿钞数量 (上限 5千万)", "消耗: 1K 点数"),
                 ("02", "修改金币数量 (上限 50万)", "消耗: 10K 点数"),
                 ("03", "解锁皇冠成就 (156 成就)", "消耗: 30K 点数"),
-                ("04", "更改玩家 ID", "消耗: 30K 点数"),
+                ("04", "更改玩家 ID (无字符/长度限制,不能有空格)", "消耗: 30K 点数"), # MODIFIED
                 ("05", "更改普通昵称", "消耗: 5K 点数"),
                 ("06", "更改彩虹渐变昵称", "消耗: 5K 点数"),
                 ("07", "解锁自定义车牌", "消耗: 2K 点数"),
@@ -407,14 +407,10 @@ if __name__ == "__main__":
             ]
 
             # --- Display menu options using Table for alignment ---
-            # Create a Table instance. Use padding for space between columns.
-            # Removed expand=True and relied on padding and content width
-            menu_table = Table(show_header=False, box=None, padding=(0, 3)) # Increased padding slightly to 3
+            menu_table = Table(show_header=False, box=None, padding=(0, 1)) # 减少列间距
 
-            # Add columns: one for item text, one for cost (right justified)
-            # Let left column take space with ratio=1, right column sizes to content + padding
-            menu_table.add_column(justify="left", ratio=1) # Left column takes available space
-            menu_table.add_column(justify="right") # Right column sizes to content + padding
+            menu_table.add_column(justify="left", style="default", ratio=1, overflow="fold") # 允许描述文字折行
+            menu_table.add_column(justify="right", style="bold red", min_width=12) # 给消耗点数一个最小宽度，并用醒目颜色
 
 
             # Add rows to the table
@@ -510,15 +506,20 @@ if __name__ == "__main__":
                     console.print("[bold red]失败 (✘)[bold red]")
                     console.print("[bold red]   操作失败，可能是点数不足或服务器问题。[/bold red]")
 
-            elif service == 4: # Change Player ID
-                console.print("[bold yellow][?] 请输入您的新 ID (只能包含字母和数字，不能有空格)[/bold yellow]")
+            elif service == 4: # Change Player ID -- MODIFIED SECTION
+                console.print("[bold yellow][?] 请输入您的新 ID (无特殊字符或长度限制，但不能包含空格)[/bold yellow]") # MODIFIED PROMPT
                 # Use prompt_valid_value with console=console as in JBCGJX.py
-                new_id = prompt_valid_value("[?] 新 ID", "ID", console)
+                new_id = prompt_valid_value("[?] 新 ID", "ID", console) # This function already checks for empty or all-space string
                 console.print("[%] 正在保存数据...", end="")
-                # Call as in CyloTool.py, using upper()
-                # Keep JBCGJX.py's alnum check for stricter validation
-                if new_id and new_id.isalnum():
-                    if cpm.set_player_localid(new_id.upper()):
+                # MODIFIED CONDITION: Check if new_id is not empty and does not contain spaces.
+                # The prompt_valid_value already ensures it's not empty or just spaces.
+                # We still need to explicitly check for spaces within the string if prompt_valid_value doesn't.
+                # However, prompt_valid_value has: `if not value or value.isspace():`
+                # This means `value` (which becomes `new_id`) will not be empty and not consist *only* of spaces.
+                # A string like "id with space" would pass `value.isspace()` as false.
+                # So, an additional check for internal spaces is good.
+                if ' ' not in new_id: # Ensure no spaces within the ID string
+                    if cpm.set_player_localid(new_id.upper()): # .upper() is consistent with CyloTool
                         print("[bold green]成功 (✔)[bold green]")
                         operation_successful = True
                     else:
@@ -528,7 +529,7 @@ if __name__ == "__main__":
                 else:
                     # Invalid input messages from JBCGJX.py
                     console.print("[bold red]输入无效 (✘)[bold red]")
-                    console.print("[bold red]   ID 只能包含字母和数字，且不能为空。[/bold red]")
+                    console.print("[bold red]   ID 不能为空且不能包含空格。[/bold red]") # MODIFIED ERROR
 
             elif service == 5: # Change Normal Name
                 console.print("[bold yellow][?] 请输入您的新昵称[/bold yellow]")
@@ -600,7 +601,7 @@ if __name__ == "__main__":
                 else:
                     # Keep JBCGJX.py's cancel message
                     console.print("[bold yellow]   操作已取消。[/bold yellow]")
-                    operation_successful = False
+                    operation_successful = False # Explicitly set to false, though it doesn't matter much here.
 
             elif service == 9: # Register New Account
                 console.print("[bold yellow][!] 正在注册新账号[/bold yellow]")
@@ -694,7 +695,7 @@ if __name__ == "__main__":
                 console.print("[bold yellow][!] 请输入[接收]数据的目标账号信息[/bold yellow]")
                 # Use prompt_valid_value with console=console and password=True
                 to_email = prompt_valid_value("[?] 目标账号邮箱", "邮箱", console)
-                to_password = prompt_valid_value("[?] 目标账号密码", "密码", console, password=True)
+                to_password = prompt_valid_value("[?] 目标账号密码", "密码", console, password=True) # MODIFIED CyloTool uses password=False here, JBCGJX was True. Let's keep True for security of target pass.
                 console.print("[%] 正在将当前账号数据克隆到目标账号...", end="")
                 # Call account_clone as in CyloTool.py
                 if cpm.account_clone(to_email, to_password):
@@ -754,7 +755,7 @@ if __name__ == "__main__":
                  custom_value = IntPrompt.ask("[bold][?] 数值[/bold]", console=console)
                  console.print(f"[%] 正在为车辆 {car_id} 设置 {action_name} 为 {custom_value}...", end="")
                  # Keep JBCGJX.py's >= 0 check
-                 if car_id >= 0 and custom_value >= 0:
+                 if car_id >= 0 and custom_value >= 0: # Ensuring custom_value is also non-negative
                      # Call action_func as in CyloTool.py
                      if action_func(car_id, custom_value):
                          print("[bold green]成功 (✔)[bold green]")
@@ -801,7 +802,7 @@ if __name__ == "__main__":
                     # Keep JBCGJX.py's note and exit logic
                     console.print("[bold yellow]   提示：您的登录令牌已更新，请使用新密码重新登录。[/bold yellow]")
                     operation_successful = True
-                    exit_tool = True
+                    exit_tool = True # User must re-login
                 else:
                     # Detailed error messages from JBCGJX.py
                     console.print("[bold red]失败 (✘)[bold red]")
@@ -819,7 +820,8 @@ if __name__ == "__main__":
                         print("[bold green]成功 (✔)[bold green]")
                         operation_successful = True
                         # Adopt CyloTool.py's logic to break to login loop after changing email
-                        break # Break out of the inner menu loop
+                        console.print("[bold yellow]   邮箱已更改，请使用新邮箱重新登录。[/bold yellow]")
+                        break # Break out of the inner menu loop to force re-login
                     else:
                         # Detailed error messages from JBCGJX.py
                         console.print("[bold red]失败 (✘)[bold red]")
@@ -831,26 +833,28 @@ if __name__ == "__main__":
 
 
             # Keep JBCGJX.py's success handling and prompt to return to menu or exit
-            if operation_successful and not exit_tool:
+            if operation_successful and not exit_tool: # If exit_tool is true, we are already breaking or will break.
                  console.print("[bold green]======================================[/bold green]")
                  answ = Prompt.ask("[?] 操作完成。是否返回主菜单？(y/n, 默认 y)", choices=["y", "n"], default="y", console=console)
                  if answ == "n":
                      console.print("[bold white] 感谢您使用本工具！再见！[/bold white]")
-                     exit_tool = True
-                 # else: continue (default or input y, loop continues automatically)
+                     exit_tool = True # Signal to break outer loop as well
+                 # else: continue (default or input y, loop continues automatically for inner menu)
             # Keep JBCGJX.py's failure handling for specific services
-            elif not operation_successful and service not in [0, 8, 9]:
+            # Exclude service 8 (delete) and 9 (register) from automatic "press enter to return" as they have their own flow.
+            elif not operation_successful and service not in [0, 8, 9]: # service 0 also has its own exit path
                 console.print("[bold red]======================================[/bold red]")
                 console.print("[bold yellow]   请检查错误信息，按回车键返回主菜单...[/bold yellow]")
-                input()
+                input() # Wait for user to press Enter
 
             # Keep JBCGJX.py's exit loop break
-            if exit_tool:
+            if exit_tool: # This flag is set on explicit exit (service 0), or after critical changes (delete, password change), or user choosing 'n'
                  break # Break out of the inner menu loop
 
         # This break is reached if exit_tool is True (from service 0, 8, 34, or user choosing 'n' after successful operation)
-        # or if changing email (service 35) was successful.
-        if exit_tool:
+        # or if changing email (service 35) was successful which also breaks the inner loop.
+        if exit_tool: # If exit_tool was set in inner loop, also break outer (login) loop.
             break # Break out of the outer login loop to end the script.
-        # If we broke out of the inner loop for service 35, we fall through here
-        # and continue the outer loop, leading to the login screen again.
+        # If we broke out of the inner loop for service 35 (change email),
+        # exit_tool might not be true yet, so we fall through here
+        # and continue the outer loop, leading to the login screen again (which is desired).
