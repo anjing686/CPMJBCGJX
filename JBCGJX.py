@@ -173,9 +173,9 @@ def banner(console):
     gradient_separator("提示信息", console, separator_char=SEPARATOR_CHAR, start_color=PINK, end_color=PURPLE)
 
     # 将这三行提示信息改为随机渐变色
-    console.print(random_gradient_text_line_rich("      请在使用本工具前，先在 CPM 游戏中登出账号！"))
-    console.print(random_gradient_text_line_rich("      严禁分享您的访问密钥 检测到IP波动频繁封禁秘钥！"))
-    console.print(random_gradient_text_line_rich("      快手搜季伯常私信获得工具箱安装教程及使用权！"))
+    console.print(random_gradient_text_line_rich("请在使用本工具前，先在 CPM 游戏中登出账号！"))
+    console.print(random_gradient_text_line_rich("严禁分享您的访问密钥 检测到IP波动频繁封禁秘钥！"))
+    console.print(random_gradient_text_line_rich("快手搜季伯常私信获得工具箱安装教程及使用权！"))
 
     # 为结束提示使用渐变分隔符，使用 STAR 符号和粉紫渐变
     gradient_separator("结束提示", console, separator_char=SEPARATOR_CHAR, start_color=PINK, end_color=PURPLE)
@@ -194,10 +194,10 @@ def load_player_data(cpm, console):
 
         if all(key in data for key in required_keys) and isinstance(data.get('carIDnStatus'), dict):
             # 为每行玩家数据应用随机渐变色
-            console.print(random_gradient_text_line_rich(f"   >> 昵称 (Name)   : {data.get('Name', '未定义')}"))
-            console.print(random_gradient_text_line_rich(f"   >> ID (LocalID)  : {data.get('localID', '未定义')}"))
-            console.print(random_gradient_text_line_rich(f"   >> 绿钞 (Money)  : {data.get('money', '未定义')}"))
-            console.print(random_gradient_text_line_rich(f"   >> 金币 (Coins)  : {data.get('coin', '未定义')}"))
+            console.print(random_gradient_text_line_rich(f">> 昵称 (Name)   : {data.get('Name', '未定义')}"))
+            console.print(random_gradient_text_line_rich(f">> ID (LocalID)  : {data.get('localID', '未定义')}"))
+            console.print(random_gradient_text_line_rich(f">> 绿钞 (Money)  : {data.get('money', '未定义')}"))
+            console.print(random_gradient_text_line_rich(f">> 金币 (Coins)  : {data.get('coin', '未定义')}"))
 
             friends_count = len(data.get("FriendsID", []))
             console.print(random_gradient_text_line_rich(f"   >> 好友数量      : {friends_count}"))
