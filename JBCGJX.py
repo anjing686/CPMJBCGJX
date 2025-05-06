@@ -200,12 +200,12 @@ def load_player_data(cpm, console):
             console.print(random_gradient_text_line_rich(f">> 金币 (Coins)  : {data.get('coin', '未定义')}"))
 
             friends_count = len(data.get("FriendsID", []))
-            console.print(random_gradient_text_line_rich(f"   >> 好友数量      : {friends_count}"))
+            console.print(random_gradient_text_line_rich(f">> 好友数量      : {friends_count}"))
 
             car_list = data.get("carIDnStatus", {}).get("carGeneratedIDs", [])
             unique_car_list = set(car_list)
             car_count = len(unique_car_list)
-            console.print(random_gradient_text_line_rich(f"   >> 车辆数量      : {car_count}"))
+            console.print(random_gradient_text_line_rich(f">> 车辆数量      : {car_count}"))
 
         else:
             missing_keys = [key for key in required_keys if key not in data]
@@ -237,13 +237,13 @@ def load_key_data(cpm, console):
          displayed_key = access_key
 
     # 为每行密钥信息应用随机渐变色
-    console.print(random_gradient_text_line_rich(f"   >> Access Key : {displayed_key}"))
-    console.print(random_gradient_text_line_rich(f"   >> Telegram ID: {data.get('telegram_id', '未提供')}"))
+    console.print(random_gradient_text_line_rich(f">> Access Key : {displayed_key}"))
+    console.print(random_gradient_text_line_rich(f">> Telegram ID: {data.get('telegram_id', '未提供')}"))
 
     balance = data.get('coins', 'N/A')
     is_unlimited = data.get('is_unlimited', False)
     balance_display = "无限" if is_unlimited else balance
-    console.print(random_gradient_text_line_rich(f"   >> 余额 (点数): {balance_display}"))
+    console.print(random_gradient_text_line_rich(f">> 余额 (点数): {balance_display}"))
 
 
 def prompt_valid_value(content, tag, console, password=False):
@@ -268,8 +268,8 @@ def load_client_details(console):
         # 为“地理位置 (估算)”使用渐变分隔符，使用 STAR 符号和粉紫渐变
         gradient_separator("地理位置 (估算)", console, separator_char=SEPARATOR_CHAR, start_color=PINK, end_color=PURPLE)
         # 为每行位置信息应用随机渐变色
-        console.print(random_gradient_text_line_rich(f"   >> 国家/地区: {data.get('country', '未知')} ({data.get('countryCode', '')})"))
-        console.print(random_gradient_text_line_rich(f"   >> 城市     : {data.get('city', '未知')} {data.get('zip', '')}"))
+        console.print(random_gradient_text_line_rich(f">> 国家/地区: {data.get('country', '未知')} ({data.get('countryCode', '')})"))
+        console.print(random_gradient_text_line_rich(f">> 城市     : {data.get('city', '未知')} {data.get('zip', '')}"))
     except requests.exceptions.RequestException as e:
         console.print("[bold yellow] ! 警告：无法获取地理位置信息。[/bold yellow]")
     finally:
